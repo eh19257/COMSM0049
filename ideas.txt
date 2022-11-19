@@ -1,1 +1,1 @@
-bla bla bla
+Binary files parsed in binary ROPgadget/ropgadget/binary.py? Check out self.__rawBinary & self.__Binary
