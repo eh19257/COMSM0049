@@ -1,6 +1,8 @@
 import subprocess
 import sys
 
+print("hello")
+
 def dumpAssembly(filePath):
     subprocess.run(["objdump", "-d", filePath])
 
