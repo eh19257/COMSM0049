@@ -18,7 +18,7 @@ import ropgadget.updateAlert
 import ropgadget.version
 
 
-def main():
+def main(execve):
     import sys
     from   ropgadget.args import Args
     from   ropgadget.core import Core
@@ -27,4 +27,4 @@ def main():
     except ValueError as e:
         print(e)
         sys.exit(-1)
-    sys.exit(0 if Core(args.getArgs()).analyze() else 1)
+    sys.exit(0 if Core(args.getArgs(), execve).analyze() else 1)            ### MODIFIED

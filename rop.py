@@ -1,15 +1,5 @@
-import subprocess
-import sys
+import ROPgadget.ropgadget
 
-print("hello")
+execve = "/bin/echo Sex Up My Dad"
 
-def dumpAssembly(filePath):
-    subprocess.run(["objdump", "-d", filePath])
-
-    #return subprocess.stdout
-
-
-if len(sys.argv) < 2:
-    print("Not enough args")
-else:
-    dumpAssembly(sys.argv[1])
+ropgadget.main()

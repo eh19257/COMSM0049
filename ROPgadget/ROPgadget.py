@@ -9,4 +9,6 @@
 
 import ropgadget
 
-ropgadget.main()
+execve = "/bin/echo Sex Up My Dad"           ### MODIFIED
+
+ropgadget.main(execve)
