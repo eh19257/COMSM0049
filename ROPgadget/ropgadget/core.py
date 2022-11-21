@@ -21,12 +21,13 @@ from ropgadget.ropchain.ropmaker import ROPMaker
 
 
 class Core(cmd.Cmd):
-    def __init__(self, options):
+    def __init__(self, options, execve):
         cmd.Cmd.__init__(self)
         self.__options = options
         self.__binary  = None
         self.__gadgets = []
         self.__offset  = 0
+        self.__execve  = execve
         self.prompt    = '(ROPgadget)> '
 
     def __checksBeforeManipulations(self):
@@ -257,7 +258,7 @@ class Core(cmd.Cmd):
             self.__getGadgets()
             self.__lookingForGadgets()
             if self.__options.ropchain:
-                ROPMaker(self.__binary, self.__gadgets, self.__offset)
+                ROPMaker(self.__binary, self.__gadgets, self.__offset, self.__execve)
             return True
 
     def gadgets(self):

