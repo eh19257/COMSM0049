@@ -291,7 +291,7 @@ class ROPMakerX86(object):
         p += pack('<I', write4where["vaddr"]) 
         p += self.__custompadding(write4where, {})     
         
-        #writes /ech on stack
+        #writes echo on stack
 
         p += pack('<I', popDst["vaddr"]) 
         p += pack('<I', dataAddr + 12) 
