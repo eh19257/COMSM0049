@@ -10,6 +10,9 @@ int copyData(char *string)
 {
 	char buf[32];
 	strcpy(buf, string);
+
+	//printf("DATA IN BUFFER: %x\n", string);
+	//printf("DATA IN buf: %x\n", buf);
 	return (0);
 }
 
@@ -37,5 +40,3 @@ int main(int argc, char *argv[])
 	copyData(buffer);
 	return (0);
 }
-		
-

