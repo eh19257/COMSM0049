@@ -144,27 +144,23 @@ def find_BOF(vulnerableFile, inputType):
         
 def handle_args():
     desc = '''
-
+     ________________
+    < auto-wadder.py >
+     ----------------
+        \   ^__^
+         \  (oo)\_______
+            (__)\       )\/\\
+                ||----w |
+                ||     ||
+    
     Welcome to auto-wadder.py! This program automatically finds the length of padding/wadding that is require to exploit some buffer overflow expolit.
     '''
 
-    '''
-    ___________\n
-    < Big Penis >\n
-    -----------\n
-            \\   ^__^\n
-            \\  (oo)\\_______\n
-                (__)\\       )\\/\\\n
-                    ||----w |\n
-                    ||     ||\n
-    \n
-    '''
-
     # create parser
-    parser = argparse.ArgumentParser(prog="Auto-wadder.py", description=desc, epilog="Enjoy!")
+    parser = argparse.ArgumentParser(prog="Auto-wadder.py", description=desc, epilog="Enjoy!",  formatter_class=argparse.RawTextHelpFormatter)
 
 
-    parser.add_argument("filePath", help="The path to the vulnerable file", type=str)
+    parser.add_argument("filePath", help="The path to the vulnerable file", type=str)#, formatter_class=argparse.RawTextHelpFormatter)
 
     #parse.add_argumnet("-h", "--help", help)
 
