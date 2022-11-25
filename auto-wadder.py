@@ -143,17 +143,35 @@ def find_BOF(vulnerableFile, inputType):
 
         
 def handle_args():
+    desc = '''
+
+    Welcome to auto-wadder.py! This program automatically finds the length of padding/wadding that is require to exploit some buffer overflow expolit.
+    '''
+
+    '''
+    ___________\n
+    < Big Penis >\n
+    -----------\n
+            \\   ^__^\n
+            \\  (oo)\\_______\n
+                (__)\\       )\\/\\\n
+                    ||----w |\n
+                    ||     ||\n
+    \n
+    '''
+
     # create parser
-    parser = argparse.ArgumentParser(prog="Auto-wadder.py", description="Automatically pads/wads some bof so that we can find the length of padding needed", epilog="Enjoy!")
+    parser = argparse.ArgumentParser(prog="Auto-wadder.py", description=desc, epilog="Enjoy!")
 
 
-    #parser.add_argument("help", action="help")#p="Can be either FILE | ARG | STDIN")#, type=InputTypes)     
+    parser.add_argument("filePath", help="The path to the vulnerable file", type=str)
 
-    #parser.add_argument("filename", help="Name of the vulnerable file")
-    parser.add_argument("filePath", type=str)
-    parser.add_argument("-f", "--file", help="The BOF of is inputed through a file", action="store_true")
-    #parser.add_argument("-a", "--arg", help="The BOF is inputted as an argument", action="store_true")
-    #parser.add_argument("-i", "--stdin", help="The BOF is inputted via STDIN", action="store_true")
+    #parse.add_argumnet("-h", "--help", help)
+
+    input_group = parser.add_mutually_exclusive_group()
+    input_group.add_argument("-f", "--file", help="Case where the vulnerable input is a file", action="store_true", default=False)
+    input_group.add_argument("-a", "--arg", help="Case where the vulnerable input is a cmd line argument", action="store_true", default=False)
+    input_group.add_argument("-i", "--stdin", help="Case where the vulnerable input is in STDIN ", action="store_true", default=False)
 
     args = parser.parse_args()
 
@@ -166,7 +184,5 @@ def main():
     
     # Define input args here
     find_BOF(args.filePath, InputTypes.FILE)
-    #run_strace([sys.argv[1], TMP_INPUT_FILE_NAME])
-
 
 main()
