@@ -27,7 +27,7 @@ class ROPMakerX86(object):
 
         self.__generate()
 
-    def __pops(self,gadgetsAlreadyTested):
+    def __pops(self):
 
         outputdict = {}
 
@@ -38,7 +38,7 @@ class ROPMakerX86(object):
 
         return outputdict
 
-    def __pushs(self,gadgetsAlreadyTested):
+    def __pushs(self):
 
         outputdict = {}
 
@@ -49,13 +49,65 @@ class ROPMakerX86(object):
 
         return outputdict
 
-    def __lookingPossiableMask(self,gadgetsAlreadyTested):
+    def __lookingPossiableMoves(self):
+
+        outputdict = {}
+        for gadget in self.__gadgets:
+
+            f = gadget["gadget"].split(" ; ")[0]
+            regex = re.search("mov (?P<dst>([(eax)|(ebx)|(ecx)|(edx)|(esi)|(edi)]{3})), (?P<src>([(eax)|(ebx)|(ecx)|(edx)|(esi)|(edi)]{3}))$", f)
+            if regex:
+                lg = gadget["gadget"].split(" ; ")[1:]
+
+                try:
+                    for g in lg:
+                        if g.split()[0] != "pop" and g.split()[0] != "ret":
+                            raise
+                        # we need this to filterout 'ret' instructions with an offset like 'ret 0x6', because they ruin the stack pointer
+                        if g != "ret":
+                            if g.split()[0] == "ret" and g.split()[1] != "":
+                                raise
+                    
+                    if(regex.group("dst") == regex.group("src")):
+                        raise
+
+                    outputdict[(regex.group("dst"), regex.group("src"))] = gadget
+                except:
+                    continue
+
+        return outputdict
+
+    def __lookingForMasks(self,regdst,possiablemasks,possiablemovs,possiablepops):
+        maskchain = [] 
+        for regsrc2 in ["eax","ebx","ecx","edx","esi","edi"]:
+            if ((regdst,regsrc2) in possiablemasks and regsrc2 in possiablepops):
+                #could course error when pop effecting other regs
+                maskchain.append(possiablepops[regsrc2])
+                maskchain.append(possiablemasks[(regdst,regsrc2)])
+                return (maskchain,regsrc2)
+
+            for regdst2 in ["eax","ebx","ecx","edx","esi","edi"]:
+                if ((regdst2,regsrc2) in possiablemasks and regsrc2 in possiablepops and (regdst,regdst2) in possiablemovs):
+                    maskchain.append(possiablepops[regsrc2])
+                    maskchain.append(possiablemasks[(regdst2,regsrc2)])
+                    maskchain.append(possiablemovs[(regdst,regdst2)])
+                    return (maskchain,regsrc2)
+
+                for regdst3 in ["eax","ebx","ecx","edx","esi","edi"]:
+                    if ((regdst3,regsrc2) in possiablemasks and regsrc2 in possiablepops and (regdst2,regdst3) in possiablemovs and (regdst,regdst3)):
+                        maskchain.append(possiablepops[regsrc2])
+                        maskchain.append(possiablemasks[(regdst3,regsrc2)])
+                        maskchain.append(possiablemovs[(regdst2,regdst3)])
+                        maskchain.append(possiablemovs[(regdst,regdst2)])
+                        return (maskchain,regsrc2)
+
+
+
+    def __lookingPossiableMask(self):
 
         outputdict = {}
         for mask in ["xor","add","sub"]: 
             for gadget in self.__gadgets:
-                if gadget in gadgetsAlreadyTested:
-                    continue
 
                 f = gadget["gadget"].split(" ; ")[0]
                 regex = re.search(mask + " (?P<dst>([(eax)|(ebx)|(ecx)|(edx)|(esi)|(edi)]{3})), (?P<src>([(eax)|(ebx)|(ecx)|(edx)|(esi)|(edi)|(0x+)]{3}))$", f)
@@ -442,9 +494,10 @@ class ROPMakerX86(object):
         print("\n- Step 1 -- Write-what-where gadgets\n")
 
         gadgetsAlreadyTested = []
-        possiablemasks = self.__lookingPossiableMask(gadgetsAlreadyTested)
-        possiablepops = self.__pops(gadgetsAlreadyTested)
-        possiablepushs = self.__pops(gadgetsAlreadyTested)
+        possiablemasks = self.__lookingPossiableMask()
+        possiablemovs= self.__lookingPossiableMoves()
+        possiablepops = self.__pops()
+        possiablepushs = self.__pushs()
         while True:
             write4where = self.__lookingForWrite4Where(gadgetsAlreadyTested)
             if not write4where:
@@ -470,16 +523,10 @@ class ROPMakerX86(object):
                 continue
 
             #getting second source
-            popSrc2, xorSrc2dist = None,None
-            for reg in ["eax","ebx","ecx","edx","esi","edi"]:
-                if (reg in possiablepops) and ((write4where[1],reg) in possiablemasks):
-                    popSrc2 =  possiablepops[reg]
-                    xorSrc2dist = possiablemasks[(write4where[1],reg)]
-                    print("\t[+] Gadget found: 0x%x %s" % (popSrc2["vaddr"], popSrc2["gadget"]))
-                    print("\t[+] Gadget found: 0x%x %s" % (xorSrc2dist["vaddr"], xorSrc2dist["gadget"]))
-
-            if(not popSrc2 or not xorSrc2dist):
-                print("\t[-] Can't find the 'mask'")
+            chainmask = self.__lookingForMasks(write4where[1],possiablemasks,possiablemovs,possiablepops)
+            
+            if(not chainmask):
+                print("\t[-] Can't find the 'mask chain' gadget. Try with another 'mov [r], r'\n")
                 gadgetsAlreadyTested += [write4where[0]]
                 continue
             else:
