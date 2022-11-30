@@ -26,7 +26,117 @@ class ROPMakerX86(object):
 
         self.__generate()
 
+
+        self.__generate()
+
+    def __pops(self):
+
+        outputdict = {}
+
+        for reg in ["eax","ebx","ecx","edx","esi","edi"]:
+            tmp = self.__lookingForSomeThing("pop %s" % reg)
+            if tmp:
+                outputdict[reg] = tmp
+
+        return outputdict
+
+    def __pushs(self):
+
+        outputdict = {}
+
+        for reg in ["eax","ebx","ecx","edx","esi","edi"]:
+            tmp = self.__lookingForSomeThing("push %s" % reg)
+            if tmp:
+                outputdict[reg] = tmp
+
+        return outputdict
+
+    def __lookingPossiableMoves(self):
+
+        outputdict = {}
+        for gadget in self.__gadgets:
+
+            f = gadget["gadget"].split(" ; ")[0]
+            regex = re.search("mov (?P<dst>([(eax)|(ebx)|(ecx)|(edx)|(esi)|(edi)]{3})), (?P<src>([(eax)|(ebx)|(ecx)|(edx)|(esi)|(edi)]{3}))$", f)
+            if regex:
+                lg = gadget["gadget"].split(" ; ")[1:]
+
+                try:
+                    for g in lg:
+                        if g.split()[0] != "pop" and g.split()[0] != "ret":
+                            raise
+                        # we need this to filterout 'ret' instructions with an offset like 'ret 0x6', because they ruin the stack pointer
+                        if g != "ret":
+                            if g.split()[0] == "ret" and g.split()[1] != "":
+                                raise
+                    
+                    if(regex.group("dst") == regex.group("src")):
+                        raise
+
+                    outputdict[(regex.group("dst"), regex.group("src"))] = gadget
+                except:
+                    continue
+
+        return outputdict
+
+    def __lookingForMasks(self,regdst,possiablemasks,possiablemovs,possiablepops):
+        maskchain = [] 
+        for regsrc2 in ["eax","ebx","ecx","edx","esi","edi"]:
+            if ((regdst,regsrc2) in possiablemasks and regsrc2 in possiablepops):
+                #could course error when pop effecting other regs
+                maskchain.append(possiablepops[regsrc2])
+                maskchain.append(possiablemasks[(regdst,regsrc2)])
+                return (maskchain,regsrc2)
+
+            for regdst2 in ["eax","ebx","ecx","edx","esi","edi"]:
+                if ((regdst2,regsrc2) in possiablemasks and regsrc2 in possiablepops and (regdst,regdst2) in possiablemovs):
+                    maskchain.append(possiablepops[regsrc2])
+                    maskchain.append(possiablemasks[(regdst2,regsrc2)])
+                    maskchain.append(possiablemovs[(regdst,regdst2)])
+                    return (maskchain,regsrc2)
+
+                for regdst3 in ["eax","ebx","ecx","edx","esi","edi"]:
+                    if ((regdst3,regsrc2) in possiablemasks and regsrc2 in possiablepops and (regdst2,regdst3) in possiablemovs and (regdst,regdst3)):
+                        maskchain.append(possiablepops[regsrc2])
+                        maskchain.append(possiablemasks[(regdst3,regsrc2)])
+                        maskchain.append(possiablemovs[(regdst2,regdst3)])
+                        maskchain.append(possiablemovs[(regdst,regdst2)])
+                        return (maskchain,regsrc2)
+
+
+
+    def __lookingPossiableMask(self):
+
+        outputdict = {}
+        for mask in ["xor","add","sub"]: 
+            for gadget in self.__gadgets:
+
+                f = gadget["gadget"].split(" ; ")[0]
+                regex = re.search(mask + " (?P<dst>([(eax)|(ebx)|(ecx)|(edx)|(esi)|(edi)]{3})), (?P<src>([(eax)|(ebx)|(ecx)|(edx)|(esi)|(edi)|(0x+)]{3}))$", f)
+                if regex:
+                    lg = gadget["gadget"].split(" ; ")[1:]
+
+                    try:
+                        for g in lg:
+                            if g.split()[0] != "pop" and g.split()[0] != "ret":
+                                raise
+                            # we need this to filterout 'ret' instructions with an offset like 'ret 0x6', because they ruin the stack pointer
+                            if g != "ret":
+                                if g.split()[0] == "ret" and g.split()[1] != "":
+                                    raise
+                        
+                        if(regex.group("dst") == regex.group("src")):
+                            raise
+
+                        outputdict[(regex.group("dst"), regex.group("src"))] = gadget
+                    except:
+                        continue
+
+        return outputdict
+
+    
     def __lookingForWrite4Where(self, gadgetsAlreadyTested):
+
         for gadget in self.__gadgets:
             if gadget in gadgetsAlreadyTested:
                 continue
@@ -43,8 +153,9 @@ class ROPMakerX86(object):
                         if g != "ret":
                             if g.split()[0] == "ret" and g.split()[1] != "":
                                 raise
+
                     print("\t[+] Gadget found: 0x%x %s" % (gadget["vaddr"], gadget["gadget"]))
-                    return [gadget, regex.group("dst"), regex.group("src")]
+                    return [gadget,regex.group("dst"), regex.group("src")]
                 except:
                     continue
         return None
@@ -79,14 +190,15 @@ class ROPMakerX86(object):
 
     def __custompadding(self, gadget, regAlreadSetted):
         lg = gadget["gadget"].split(" ; ")
+        p = b''
         for g in lg[1:]:
             if g.split()[0] == "pop":
                 reg = g.split()[1]
                 try:
-                    return pack('<I', regAlreadSetted[reg])
+                    p += pack('<I', regAlreadSetted[reg])
                 except KeyError:
-                    return pack('<I', 0x41414141)
-        return b''
+                    p += pack('<I', 0x41414141)
+        return p 
 
     def __buildRopChain(self, write4where, popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall):
 
@@ -525,6 +637,10 @@ class ROPMakerX86(object):
         print("\n- Step 1 -- Write-what-where gadgets\n")
 
         gadgetsAlreadyTested = []
+        possiablemasks = self.__lookingPossiableMask()
+        possiablemovs= self.__lookingPossiableMoves()
+        possiablepops = self.__pops()
+        possiablepushs = self.__pushs()
         while True:
             write4where = self.__lookingForWrite4Where(gadgetsAlreadyTested)
             if not write4where:
@@ -548,6 +664,14 @@ class ROPMakerX86(object):
                 print("\t[-] Can't find the 'xor %s, %s' gadget. Try with another 'mov [r], r'\n" % (write4where[2], write4where[2]))
                 gadgetsAlreadyTested += [write4where[0]]
                 continue
+
+            #getting second source
+            chainmask = self.__lookingForMasks(write4where[1],possiablemasks,possiablemovs,possiablepops)
+            
+            if(not chainmask):
+                print("\t[-] Can't find the 'mask chain' gadget. Try with another 'mov [r], r'\n")
+                gadgetsAlreadyTested += [write4where[0]]
+                continue
             else:
                 break
 
@@ -569,7 +693,6 @@ class ROPMakerX86(object):
         if not popEbx:
             print("\t[-] Can't find the 'pop ebx' instruction")
             return
-
         popEcx = self.__lookingForSomeThing("pop ecx")
         if not popEcx:
             print("\t[-] Can't find the 'pop ecx' instruction")
@@ -589,7 +712,7 @@ class ROPMakerX86(object):
 
         print("\n- Step 5 -- Build the ROP chain\n")
 
-        self.__buildRopChain(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall)
+        #self.__buildRopChain(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall)
         #self.customRopChain(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall)
-        self.arbitrary_shell_code(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall)
+        #self.arbitrary_shell_code(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall)
     
