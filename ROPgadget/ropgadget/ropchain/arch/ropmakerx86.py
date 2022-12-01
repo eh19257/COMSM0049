@@ -77,31 +77,39 @@ class ROPMakerX86(object):
 
         return outputdict
 
-    def __lookingForMasks(self,regdst,possiablemasks,possiablemovs,possiablepops):
+    def __lookingForMasks(self,regdst,regsrc,possiablemasks,possiablemovs,possiablepops,possaiblepushs):
         maskchain = [] 
         for regsrc2 in ["eax","ebx","ecx","edx","esi","edi"]:
             if ((regdst,regsrc2) in possiablemasks and regsrc2 in possiablepops):
                 #could course error when pop effecting other regs
-                maskchain.append(possiablepops[regsrc2])
-                maskchain.append(possiablemasks[(regdst,regsrc2)])
-                return (maskchain,regsrc2)
+                if(regsrc == regsrc2):
+                    mask,method = maskchain.append(possiablemasks[(regdst,regsrc2)])
+                    maskchain.append(mask)
+                    return (maskchain,regsrc2,method)
+                else:
+                    maskchain.append(possiablepops[regsrc2])
+                    mask,method = maskchain.append(possiablemasks[(regdst,regsrc2)])
+                    maskchain.append(mask)
+                    return (maskchain,regsrc2,method)
 
             for regdst2 in ["eax","ebx","ecx","edx","esi","edi"]:
-                if ((regdst2,regsrc2) in possiablemasks and regsrc2 in possiablepops and (regdst,regdst2) in possiablemovs):
-                    maskchain.append(possiablepops[regsrc2])
-                    maskchain.append(possiablemasks[(regdst2,regsrc2)])
-                    maskchain.append(possiablemovs[(regdst,regdst2)])
-                    return (maskchain,regsrc2)
+                if ((regdst2,regsrc2) in possiablemasks and regsrc2 in possiablepops):
 
-                for regdst3 in ["eax","ebx","ecx","edx","esi","edi"]:
-                    if ((regdst3,regsrc2) in possiablemasks and regsrc2 in possiablepops and (regdst2,regdst3) in possiablemovs and (regdst,regdst3)):
-                        maskchain.append(possiablepops[regsrc2])
-                        maskchain.append(possiablemasks[(regdst3,regsrc2)])
-                        maskchain.append(possiablemovs[(regdst2,regdst3)])
-                        maskchain.append(possiablemovs[(regdst,regdst2)])
-                        return (maskchain,regsrc2)
+                    if(regsrc != regsrc2 and regsrc != regdst2):
+                        if((regdst,regdst2) in possiablemovs):
+                            maskchain.append(possiablepops[regsrc2])
+                            mask,method = possiablemasks[(regdst2,regsrc2)]
+                            maskchain.append(mask)
+                            maskchain.append(possiablemovs[(regdst,regdst2)])
+                            return (maskchain,regsrc2,method)
 
-
+                        if(regdst2 in possaiblepushs and regdst in possiablepops):
+                            maskchain.append(possiablepops[regsrc2])
+                            mask,method = possiablemasks[(regdst2,regsrc2)]
+                            maskchain.append(mask)
+                            maskchain.append(possaiblepushs[regdst2])
+                            maskchain.append(possiablepops[regdst])
+                            return (maskchain,regsrc2,method)
 
     def __lookingPossiableMask(self):
 
@@ -126,9 +134,15 @@ class ROPMakerX86(object):
                         if(regex.group("dst") == regex.group("src")):
                             raise
 
-                        outputdict[(regex.group("dst"), regex.group("src"))] = gadget
+                        outputdict[(regex.group("dst"), regex.group("src"))] = (gadget,mask)
                     except:
                         continue
+        outputdict = {}
+        for mask in ["inc","dec"]: 
+            for reg in ["eax","ebx","ecx","edx","esi","edi"]:
+                tmp = self.__lookingForSomeThing(mask + " %s" % reg)
+                if tmp:
+                    outputdict[(reg,reg)] = (tmp,mask)
 
         return outputdict
 
@@ -523,7 +537,7 @@ class ROPMakerX86(object):
                 continue
 
             #getting second source
-            chainmask = self.__lookingForMasks(write4where[1],possiablemasks,possiablemovs,possiablepops)
+            chainmask = self.__lookingForMasks(write4where[1],write4where[2],possiablemasks,possiablemovs,possiablepops,possiablepushs)
             
             if(not chainmask):
                 print("\t[-] Can't find the 'mask chain' gadget. Try with another 'mov [r], r'\n")
@@ -531,7 +545,8 @@ class ROPMakerX86(object):
                 continue
             else:
                 break
-
+        
+        print(chainmask)
         print("\n- Step 2 -- Init syscall number gadgets\n")
 
         xorEax = self.__lookingForSomeThing("xor eax, eax")
