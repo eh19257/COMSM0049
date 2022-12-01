@@ -27,8 +27,6 @@ class ROPMakerX86(object):
         self.__generate()
 
 
-        self.__generate()
-
     def __pops(self):
 
         outputdict = {}
@@ -79,7 +77,7 @@ class ROPMakerX86(object):
 
         return outputdict
 
-    def __lookingForMasks(self,regdst,possiablemasks,possiablemovs,possiablepops):
+    def __lookingForMasks(self, regdst, possiablemasks, possiablemovs, possiablepops):
         maskchain = [] 
         for regsrc2 in ["eax","ebx","ecx","edx","esi","edi"]:
             if ((regdst,regsrc2) in possiablemasks and regsrc2 in possiablepops):
@@ -114,7 +112,10 @@ class ROPMakerX86(object):
                 f = gadget["gadget"].split(" ; ")[0]
                 regex = re.search(mask + " (?P<dst>([(eax)|(ebx)|(ecx)|(edx)|(esi)|(edi)]{3})), (?P<src>([(eax)|(ebx)|(ecx)|(edx)|(esi)|(edi)|(0x+)]{3}))$", f)
                 if regex:
+
+                    #print("BEFORE GADGET SPLIT: ", gadget["gadget"].split(" ; "))
                     lg = gadget["gadget"].split(" ; ")[1:]
+                    
 
                     try:
                         for g in lg:
@@ -525,8 +526,6 @@ class ROPMakerX86(object):
 
         return b
 
-
-
     # (C)heck and (C)reate (M)asked (A)ddress. Checks and creates an addr for nulls - if it contains a null then it creates a mask and outputs the ropchain associated with decoding it
     def CCMA(self, addr, regAlreadySetted, write4where, popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall):#, xorSrcDst, pushSrc):
         # If the addr contains no NULLs then we just return
@@ -592,7 +591,7 @@ class ROPMakerX86(object):
             # Rembemer to add padding protection for SRC (protection for the previous XOR)
             b += pack("<I", popDst["vaddr"])
             ####### WARNING #######
-            b += self.__custompadding(popDst, {popSrc["gadget"].split()[1]: })  ## HIGH RISK - CURRENTLY NOT USING PADDING PROTECTION FOR SRC!!!!!!!!!!!!!
+            b += self.__custompadding(popDst, {})#{popSrc["gadget"].split()[1]: })  ## HIGH RISK - CURRENTLY NOT USING PADDING PROTECTION FOR SRC!!!!!!!!!!!!!
             ####### WARNING ####### 
 
             stackPointer = len(b)
@@ -638,9 +637,13 @@ class ROPMakerX86(object):
 
         gadgetsAlreadyTested = []
         possiablemasks = self.__lookingPossiableMask()
+        for a in possiablemasks:
+            print("Possible Mask Gadget: ", a)#["gadget"])
+        print("POSSIBLE GADGET:", possiablemasks)
         possiablemovs= self.__lookingPossiableMoves()
         possiablepops = self.__pops()
         possiablepushs = self.__pushs()
+
         while True:
             write4where = self.__lookingForWrite4Where(gadgetsAlreadyTested)
             if not write4where:
@@ -666,8 +669,7 @@ class ROPMakerX86(object):
                 continue
 
             #getting second source
-            chainmask = self.__lookingForMasks(write4where[1],possiablemasks,possiablemovs,possiablepops)
-            
+            chainmask = self.__lookingForMasks(write4where[1], possiablemasks, possiablemovs, possiablepops)
             if(not chainmask):
                 print("\t[-] Can't find the 'mask chain' gadget. Try with another 'mov [r], r'\n")
                 gadgetsAlreadyTested += [write4where[0]]
