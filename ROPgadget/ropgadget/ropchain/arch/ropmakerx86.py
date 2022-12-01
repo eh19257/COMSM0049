@@ -146,6 +146,12 @@ class ROPMakerX86(object):
 
         return outputdict
 
+    def contains_byte_null(value):
+        for i in range(0,4):
+            if ((value >> 8 * i) % 256) == 0:
+                return False
+        return True
+
     
     def __lookingForWrite4Where(self, gadgetsAlreadyTested):
 
@@ -211,6 +217,17 @@ class ROPMakerX86(object):
                 except KeyError:
                     p += pack('<I', 0x41414141)
         return p 
+
+    def putvalueReg(self,value,regpop,maskchain,otherregs):
+        if self.contains_byte_null(value):
+
+            
+
+        else:
+            p += pack('<I', regpop["vaddr"]) 
+            p += pack('<I', value) 
+            p += self.__custompadding(regpop, otherregs)  
+
 
     def __buildRopChain(self, write4where, popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall):
 
