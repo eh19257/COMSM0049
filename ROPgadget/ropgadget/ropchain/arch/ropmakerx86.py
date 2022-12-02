@@ -10,6 +10,7 @@
 import re
 from struct import pack
 from ropgadget.ropchain.NullHandler import NullHandler as nh
+from collections import defaultdict
 
 
 class ROPMakerX86(object):
@@ -49,6 +50,36 @@ class ROPMakerX86(object):
 
         return outputdict
 
+    def __lookingPossiableDoubles(self):
+
+        outputdict = defaultdict(lambda : None)
+        for gadget in self.__gadgets:
+
+            f = gadget["gadget"].split(" ; ")[0]
+            regex = re.search("add (?P<dst>([(eax)|(ebx)|(ecx)|(edx)|(esi)|(edi)]{3})), (?P<src>([(eax)|(ebx)|(ecx)|(edx)|(esi)|(edi)]{3}))$", f)
+            if regex:
+                lg = gadget["gadget"].split(" ; ")[1:]
+
+                try:
+                    if(regex.group("dst") != regex.group("src")):
+                        raise
+
+                    for g in lg:
+                        if g.split()[0] != "pop" and g.split()[0] != "ret":
+                            raise
+                        # we need this to filterout 'ret' instructions with an offset like 'ret 0x6', because they ruin the stack pointer
+                        if g != "ret":
+                            if g.split()[0] == "ret" and g.split()[1] != "":
+                                raise
+                    
+                        raise
+
+                    outputdict[regex.group("src")] = gadget
+                except:
+                    continue
+
+        return outputdict
+
     def __lookingPossiableMoves(self):
 
         outputdict = {}
@@ -77,43 +108,55 @@ class ROPMakerX86(object):
 
         return outputdict
 
-    def __lookingForMasks(self, regdst, regsrc, possiablemasks, possiablemovs, possiablepops, possiablepushs):
-        maskchain = [] 
+    def __lookingForMasks(self, regdst, regsrc, possiablemasks, possiablemovs, possiablepops,possiabledoubles):
+
+        bestmaskchain= None
+
+        def setbestmaskchain(bestmaskchain,maskchaingroup):
+
+            if(bestmaskchain is None):
+                return maskchaingroup
+
+            if(maskchaingroup[3]):
+                if(not bestmaskchain[3] or len(maskchaingroup[0]) < len(bestmaskchain[0])):
+                    return maskchaingroup
+            else:
+                if(len(maskchaingroup[0]) < len(bestmaskchain[0]) and not bestmaskchain[3]):
+                    return maskchaingroup
+
+            return bestmaskchain
+
         for regsrc2 in ["eax","ebx","ecx","edx","esi","edi"]:
+            double = possiabledoubles[regdst] or possiabledoubles[regsrc2]
             if ((regdst,regsrc2) in possiablemasks and regsrc2 in possiablepops):
-                #could course error when pop effecting other regs
                 if(regsrc == regsrc2):
-                    mask,method = maskchain.append(possiablemasks[(regdst,regsrc2)])
-                    maskchain.append(mask)
-                    return (maskchain,regsrc2,method)
+                    mask,method,weight = possiablemasks[(regdst,regsrc2)]
+                    maskchaingroup = ([mask],regsrc2,(0,method,weight),double)
+                    bestmaskchain = setbestmaskchain(bestmaskchain,maskchaingroup)
                 else:
-                    maskchain.append(possiablepops[regsrc2])
-                    mask,method = maskchain.append(possiablemasks[(regdst,regsrc2)])
-                    maskchain.append(mask)
-                    return (maskchain,regsrc2,method)
+                    mask,method,weight = possiablemasks[(regdst,regsrc2)]
+                    maskchaingroup = ([possiablepops[regsrc2],mask],regsrc2,(1,method,weight),double)
+                    bestmaskchain = setbestmaskchain(bestmaskchain,maskchaingroup)
 
             for regdst2 in ["eax","ebx","ecx","edx","esi","edi"]:
                 if ((regdst2,regsrc2) in possiablemasks and regsrc2 in possiablepops):
 
                     if(regsrc != regsrc2 and regsrc != regdst2):
                         if((regdst,regdst2) in possiablemovs):
-                            maskchain.append(possiablepops[regsrc2])
-                            mask,method = possiablemasks[(regdst2,regsrc2)]
-                            maskchain.append(mask)
-                            maskchain.append(possiablemovs[(regdst,regdst2)])
-                            return (maskchain,regsrc2,method)
+                            double = double or possiabledoubles[regdst2]
+                            mask,method,weight = possiablemasks[(regdst2,regsrc2)]
+                            mov = possiablemovs[(regdst,regdst2)]
+                            maskchaingroup = ([possiablepops[regsrc2],mask,mov],regsrc2,(1,method,weight),double)
+                            setbestmaskchain(bestmaskchain,maskchaingroup)
 
-                        if(regdst2 in possaiblepushs and regdst in possiablepops):
-                            maskchain.append(possiablepops[regsrc2])
-                            mask,method = possiablemasks[(regdst2,regsrc2)]
-                            maskchain.append(mask)
-                            maskchain.append(possaiblepushs[regdst2])
-                            maskchain.append(possiablepops[regdst])
-                            return (maskchain,regsrc2,method)
+
+        return bestmaskchain
+
 
     def __lookingPossiableMask(self):
 
         outputdict = {}
+        weight = 0
         for mask in ["xor","add","sub"]: 
             for gadget in self.__gadgets:
 
@@ -137,15 +180,20 @@ class ROPMakerX86(object):
                         if(regex.group("dst") == regex.group("src")):
                             raise
 
-                        outputdict[(regex.group("dst"), regex.group("src"))] = (gadget,mask)
+                        outputdict[(regex.group("dst"), regex.group("src"))] = (gadget,mask,weight)
                     except:
                         continue
+
+            weight = weight + 1
+
         outputdict = {}
         for mask in ["inc","dec"]: 
             for reg in ["eax","ebx","ecx","edx","esi","edi"]:
                 tmp = self.__lookingForSomeThing(mask + " %s" % reg)
                 if tmp:
-                    outputdict[(reg,reg)] = (tmp,mask)
+                    outputdict[(reg,reg)] = (tmp,mask,weight)
+
+            weight = weight + 1
 
         return outputdict
 
@@ -660,15 +708,26 @@ class ROPMakerX86(object):
         for a in possiablemasks:
             print("Possible Mask Gadget: ", a)#["gadget"])
         print("POSSIBLE GADGET:", possiablemasks)
+        possiabledoubles = self.__lookingPossiableDoubles()
         possiablemovs= self.__lookingPossiableMoves()
         possiablepops = self.__pops()
         possiablepushs = self.__pushs()
+        storedgadget = [] 
+        storedgadgetsAlreadyTested= [] 
 
         while True:
             write4where = self.__lookingForWrite4Where(gadgetsAlreadyTested)
             if not write4where:
-                print("\t[-] Can't find the 'mov dword ptr [r32], r32' gadget")
-                return
+                if(len(storedgadget) == 0):
+                    print("\t[-] Can't find the 'mov dword ptr [r32], r32' gadget")
+                    return
+                write4where = storedgadget[0]
+                popDst = storedgadget[1]
+                popSrc = storedgadget[2]
+                xorSrc = storedgadget[3]
+                chainmask = storedgadget[4]
+                storedgadget = storedgadgetsAlreadyTested
+                break
 
             popDst = self.__lookingForSomeThing("pop %s" % write4where[1])
             if not popDst:
@@ -689,16 +748,53 @@ class ROPMakerX86(object):
                 continue
 
             #getting second source
-            chainmask = self.__lookingForMasks(write4where[1], write4where[2], possiablemasks, possiablemovs, possiablepops, possiablepushs)
+            chainmask = self.__lookingForMasks(write4where[1], write4where[2], possiablemasks, possiablemovs, possiablepops,possiabledoubles)
             
             if(not chainmask):
                 print("\t[-] Can't find the 'mask chain' gadget. Try with another 'mov [r], r'\n")
                 gadgetsAlreadyTested += [write4where[0]]
                 continue
+
+            if(len(storedgadget) != 0):
+                if(storedgadget[4][2][2] == 0):
+
+                    print("\t[-] found a worst vaild comb'\n")
+                    gadgetsAlreadyTested += [write4where[0]]
+                    continue
+
+                if(storedgadget[4][3]):
+                    print("\t[-] found a worst vaild comb'\n")
+                    gadgetsAlreadyTested += [write4where[0]]
+                    continue
+                    
+                else:
+
+                    if(storedgadget[4][2][2] > chainmask[2][2]):
+                        print("\t[-] found a worst vaild comb'\n")
+                        gadgetsAlreadyTested += [write4where[0]]
+                        continue
+
+                    else:
+                        storedgadget = [write4where,popDst,popSrc,xorSrc,chainmask]
+                        storedgadgetsAlreadyTested = gadgetsAlreadyTested
+
+                        gadgetsAlreadyTested += [write4where[0]]
+
+                        print("\t[-] found a vaild comb'\n")
+                        continue
+                        
             else:
-                break
+                storedgadget = [write4where,popDst,popSrc,xorSrc,chainmask]
+                storedgadgetsAlreadyTested = gadgetsAlreadyTested
+
+                gadgetsAlreadyTested += [write4where[0]]
+
+                print("\t[-] found a vaild comb'\n")
+                continue
+ 
         
         print(chainmask)
+        doubleandadd = chainmask[3]
         print("\n- Step 2 -- Init syscall number gadgets\n")
 
         xorEax = self.__lookingForSomeThing("xor eax, eax")
