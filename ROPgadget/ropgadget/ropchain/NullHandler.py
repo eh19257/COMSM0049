@@ -7,7 +7,7 @@ class NullHandler():
     # does the inputed binary contain a NULL byte?
     def contains_null(self, binary):
         for b in binary:
-            if (b == b'0'):
+            if (b == 0):
                 return True
         
         return False
@@ -47,3 +47,6 @@ class NullHandler():
             c += (a[i]^b[i]).to_bytes(1, byteorder="big")
 
         return c
+
+
+print(NullHandler().contains_null(b'\x00\x01\x02\x03'))
