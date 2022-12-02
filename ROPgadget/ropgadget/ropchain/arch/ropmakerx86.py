@@ -77,7 +77,7 @@ class ROPMakerX86(object):
 
         return outputdict
 
-    def __lookingForMasks(self, regdst, possiablemasks, possiablemovs, possiablepops):
+    def __lookingForMasks(self, regdst, regsrc, possiablemasks, possiablemovs, possiablepops, possiablepushs):
         maskchain = [] 
         for regsrc2 in ["eax","ebx","ecx","edx","esi","edi"]:
             if ((regdst,regsrc2) in possiablemasks and regsrc2 in possiablepops):

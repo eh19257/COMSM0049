@@ -49,4 +49,4 @@ class NullHandler():
         return c
 
 
-print(NullHandler().contains_null(b'\x00\x01\x02\x03'))
+#print(NullHandler().contains_null(b'\x00\x01\x02\x03'))
