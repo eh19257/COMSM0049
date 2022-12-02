@@ -49,4 +49,7 @@ class NullHandler():
         return c
 
 
-#print(NullHandler().contains_null(b'\x00\x01\x02\x03'))
+#foo = 256
+#foo = foo.to_bytes(2, byteorder='big')
+#print(foo)
+#print(NullHandler().contains_null(foo))
