@@ -284,7 +284,7 @@ class ROPMakerX86(object):
 
         print("p += pack('<I', 0x%08x) # %s" % (xorEax["vaddr"], xorEax["gadget"]))
         self.__padding(xorEax, {"ebx": dataAddr, "ecx": dataAddr + 8})  # Don't overwrite ebx and ecx
-
+        
         for _ in range(11):
             print("p += pack('<I', 0x%08x) # %s" % (incEax["vaddr"], incEax["gadget"]))
             self.__padding(incEax, {"ebx": dataAddr, "ecx": dataAddr + 8})  # Don't overwrite ebx and ecx
@@ -643,6 +643,41 @@ class ROPMakerX86(object):
             #   - run this through gdb when we have the gadgets avaliable
             
             return b
+
+    # Encodes addresses that contains nulls                                                                                                     #       #          #        #        #
+    def Double_and_Add(self, value, regAlreadySetted, write4where, popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall, addSrc, addSrcDst, xorDst, incSrc):
+        # Here we build up a value from 0 using the double-and-add algorithm, will require at most l^2 gadgets where l is the length of the word in bits
+
+        ###############
+        ### XOR SRC ###     zeros src and dst
+        ### XOR DST ###
+        ### INC SRC ###     sets src to 1
+        ### ADD SRC ###     <-- start the double and add
+        ### ADD S/D ###
+        #     ...     #
+
+        p = pack('<I', xorSrc["vaddr"])
+        p += self.__custompadding(xorSrc, {})
+
+        p += pack('<I', xorDst["vaddr"])
+        p += self.__custompadding(xorDst, {})
+
+        p += pack('<I', incSrc["vaddr"])
+        p += self.__custompadding(incSrc, {})
+
+        bits_little_endian = "{0:b}".format(value)[::-1]
+
+        for i in range(bits_little_endian):
+            # double
+            b += pack('<I', addSrc["vaddr"])
+            b += self.__custompadding(addSrc, {})
+
+            # Do we need to add?
+            if (bool(int(bits_little_endian[i]))):
+                b += pack('<I', addSrcDst["vaddr"])
+                b += self.__custompadding(addSrcDst, {})
+        
+        # At this point we have the number in dst
 
 
 
