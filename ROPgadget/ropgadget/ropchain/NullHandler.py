@@ -1,7 +1,9 @@
 from struct import pack
+
 # Handles null bytes and stuff
 class NullHandler():
-    def __init__(self):
+    def __init__(self, wordsize):
+        self.__WORD_SIZE = wordsize
         return
 
     # does the inputed binary contain a NULL byte?
@@ -16,25 +18,76 @@ class NullHandler():
         # does the mask have a null
         # does the masked_addr have a null
     # add to
-    def CreateMask(self, binary):
+
+    def CreateNonIterativeMask(self, value, mask_type):
         mask = b''
         masked_addr = b''
-        for b in binary:
-
-            for i in range(1, 256):
-                byte_mask = i.to_bytes(1, byteorder="big")
-                byte_masked_addr = self.xor_byte(byte_mask, b.to_bytes(1, byteorder="big"))
-                if (not (self.contains_null(byte_mask))):
-                    if (not (self.contains_null(byte_masked_addr))):
-                        mask += byte_mask
-                        masked_addr += byte_masked_addr
-                        break
-                
-                # we try a new mask
         
-        return mask, masked_addr
+        for i in range(0x01010101, 0xFFFFFFFF + 1):
+            byte_mask = i.to_bytes(self.__WORD_SIZE, byteorder="big")
+            byte_masked_addr = self.Apply_Mask(byte_mask, value.to_bytes(self.__WORD_SIZE, byteorder="big"), mask_type)
 
+            if (not (self.contains_null(byte_mask))):
+                if (not (self.contains_null(byte_masked_addr))):
+                    break
+            
+            # we try a new mask
     
+        return int.from_bytes(mask, "big"), int.from_bytes(masked_addr, "big")
+    
+    # Mask for iteractive mask generation (i.e. for inc and dec) maskChains
+    def CreateIterativeMask(self, value, mask_type):
+        mask = b''
+        masked_addr = b''
+        direction = 1
+
+        if (mask_type == "add"):
+            direction = -1
+        print(value)
+        for b in value:
+
+            for i in range(0, 256, direction):
+                byte_mask = i#.to_bytes(1, byteorder="big")
+                byte_masked_addr = self.Apply_Mask(byte_mask, b, mask_type)#.to_bytes(1, byteorder="big"), mask_type)
+
+                if (not (self.contains_null(byte_masked_addr))):
+                    mask += byte_mask.to_bytes(1, byteorder="big")
+                    masked_addr += byte_masked_addr
+                    break
+        
+        return int.from_bytes(mask, "big"), int.from_bytes(masked_addr, "big")
+
+
+    # Applys some masking operation for the iterative mask
+    def Apply_Mask(self, mask, value, mask_type):
+        if   (mask_type == "xor"):
+            return self.xor_byte(mask.to_bytes(self.__WORD_SIZE, byteorder="big"), value.to_bytes(self.__WORD_SIZE, byteorder="big"))
+        
+        # value = mask + mask_value ==> mask_value = value - mask
+        elif (mask_type == "add"):
+            mask_value = (value + mask) % (self.__WORD_SIZE * 256)
+            return mask_value.to_bytes(self.__WORD_SIZE, byteorder="big")
+
+        # value = mask - mask_value ==> mask_value = mask - value
+        elif (mask_type == "sub"):
+            mask_value = (mask - value) % (self.__WORD_SIZE * 256)
+            return mask_value.to_bytes(self.__WORD_SIZE, byteorder="big")
+
+        # value = mask - mask_value ==> mask_value = mask - value
+        elif (mask_type == "dec"):
+            mask_value = (mask + value) % (256)
+            return mask_value.to_bytes(1, byteorder="big")
+        
+        # value = mask + mask_value ==> mask_value = value - mask
+        elif (mask_type == "inc"):
+            mask_value = (value - mask) % (256)
+            return mask_value.to_bytes(1, byteorder="big")
+        
+        else:
+            print("Unknown mask_type: {}".format(mask_type))
+            raise
+        
+
     # bitwise xor of 2 bytestrings
     def xor_byte(self, a, b):
         # return None if the strings are different length
@@ -53,3 +106,5 @@ class NullHandler():
 #foo = foo.to_bytes(2, byteorder='big')
 #print(foo)
 #print(NullHandler().contains_null(foo))
+
+#print(NullHandler().CreateArithmeticMask(b'\xFF\xFF\x00\xFF', "dec"))
