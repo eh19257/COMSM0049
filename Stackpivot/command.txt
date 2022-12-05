@@ -1,0 +1,2 @@
+python3 -m ropper  --file vulnz/vuln3-64 --stack-pivot
+

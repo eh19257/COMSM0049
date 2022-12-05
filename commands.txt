@@ -1,0 +1,4 @@
+sudo apt update
+sudo apt install -y python3-pip gdb gcc-multilib
+pip3 install capstone
+python3 ROPgadget.py --binary ../vulnz/vuln1-32 --ropchain
