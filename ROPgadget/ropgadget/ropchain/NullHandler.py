@@ -22,6 +22,7 @@ class NullHandler():
     def CreateNonIterativeMask(self, value, mask_type):
         mask = b''
         masked_addr = b''
+        direction = 1
         
         for i in range(0x01010101, 0xFFFFFFFF + 1):
             byte_mask = i.to_bytes(self.__WORD_SIZE, byteorder="big")
@@ -41,7 +42,7 @@ class NullHandler():
         masked_addr = b''
         direction = 1
 
-        if (mask_type == "add"):
+        if (mask_type == "inc"):
             direction = -1
 
         for b in value:
@@ -63,22 +64,22 @@ class NullHandler():
         if   (mask_type == "xor"):
             return self.xor_byte(mask.to_bytes(self.__WORD_SIZE, byteorder="big"), value.to_bytes(self.__WORD_SIZE, byteorder="big"))
         
-        # value = mask + mask_value ==> mask_value = value - mask
+        # value = mask_value + mask ==> mask_value = value - mask
         elif (mask_type == "add"):
-            mask_value = (value + mask) % (self.__WORD_SIZE * 256)
+            mask_value = (value - mask) % (self.__WORD_SIZE * 256)
             return mask_value.to_bytes(self.__WORD_SIZE, byteorder="big")
 
-        # value = mask - mask_value ==> mask_value = mask - value
+        # value = mask_value - mask ==> mask_value = mask + value
         elif (mask_type == "sub"):
-            mask_value = (mask - value) % (self.__WORD_SIZE * 256)
+            mask_value = (mask + value) % (self.__WORD_SIZE * 256)
             return mask_value.to_bytes(self.__WORD_SIZE, byteorder="big")
 
-        # value = mask - mask_value ==> mask_value = mask - value
+        # value = mask_value - mask ==> mask_value = value + mask
         elif (mask_type == "dec"):
-            mask_value = (mask + value) % (256)
+            mask_value = (value + mask) % (256)
             return mask_value.to_bytes(1, byteorder="big")
         
-        # value = mask + mask_value ==> mask_value = value - mask
+        # value = mask_value + mask ==> mask_value = value - mask
         elif (mask_type == "inc"):
             mask_value = (value - mask) % (256)
             return mask_value.to_bytes(1, byteorder="big")

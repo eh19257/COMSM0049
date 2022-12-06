@@ -17,8 +17,9 @@ from collections import defaultdict
 class ROPMakerX86(object):
     def __init__(self, binary, gadgets, padding, execve, liboffset=0x0):
         self.__binary  = binary
-        self.__gadgets = gadgets
+        self.__gadgets = gadgets #+ [{"vaddr" : 0xAACCDDCC, "gadget" : "xor ebx, esi ; ret"}, {"vaddr" : 0xEEFFEEDD, "gadget" : "pop ebx ; ret"}, {"vaddr" : 0xAABBBBCC, "gadget" : "pop esi ; ret"}]
 
+        #print("BIG SEX", self.__gadgets)
         # If it's a library, we have the option to add an offset to the addresses
         self.__liboffset = liboffset
         self.padding = padding
@@ -128,9 +129,9 @@ class ROPMakerX86(object):
 
         for regsrc2 in ["eax","ebx","ecx","edx","esi","edi"]:
             double = possibledoubles[regdst] or possibledoubles[regsrc2]
-            if ((regdst,regsrc2) in possiblemasks and regsrc2 in possiblepops):
+            if ((regdst,regsrc2) in possiblemasks and regsrc2 in possiblepops and regdst in possiblepops):
                 mask,method,weight = possiblemasks[(regdst,regsrc2)]
-                mcoutputdict = {"maskchain":[possiblepops[regsrc2],mask],
+                mcoutputdict = {"maskchain":[possiblepops[regsrc2], possiblepops[regdst], mask],
                                 "masksrcanddst":[regsrc2,regdst],
                                 "method":method,
                                 "doublegadget":double,
@@ -140,14 +141,14 @@ class ROPMakerX86(object):
                 chainmasklist.append(mcoutputdict)
 
             for regdst2 in ["eax","ebx","ecx","edx","esi","edi"]:
-                if ((regdst2,regsrc2) in possiblemasks and regsrc2 in possiblepops):
+                if ((regdst2,regsrc2) in possiblemasks and regsrc2 in possiblepops and regsrc2 in possiblepops):
 
                     if(regsrc != regsrc2 and regsrc != regdst2):
                         if((regdst,regdst2) in possiblemovs):
                             double = double or possibledoubles[regdst2]
                             mask,method,weight = possiblemasks[(regdst2,regsrc2)]
                             mov = possiblemovs[(regdst,regdst2)]
-                            mcoutputdict = {"maskchain":[possiblepops[regsrc2],mask,mov],
+                            mcoutputdict = {"maskchain":[possiblepops[regsrc2], possiblepops[regdst2], mask, mov],
                                             "masksrcanddst":[regsrc2,regdst2],
                                             "method":method,
                                             "doublegadget":double,
@@ -159,7 +160,6 @@ class ROPMakerX86(object):
         sorted(chainmasklist, key=lambda x: x['weightofchain'])
 
         return chainmasklist 
-
 
     def __lookingPossiableMask(self):
 
@@ -365,7 +365,6 @@ class ROPMakerX86(object):
 
         print("p += pack('<I', 0x%08x) # %s" % (syscall["vaddr"], syscall["gadget"]))
 
-
     def customRopChain(self, write4where, popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall):
 
         sects = self.__binary.getDataSections()
@@ -524,7 +523,7 @@ class ROPMakerX86(object):
 
         ###############
 
-        p += self.GenerateMaskRopChain(0x00000030, chainmask,{})
+        p += self.GenerateMaskRopChain(0x00000030, chainmask, {})
 
         #print("".join('\\x{:02x}'.format(i) for i in p))
 
@@ -622,8 +621,8 @@ class ROPMakerX86(object):
                 p += pack("<I", masked_value)
                 p += self.__custompadding(popsomereg, otherregs)
 
-                #mask is always on the second in maskchain
-                maskgadget = chainmask["maskchain"][1]
+                #mask is always on the third in maskchain
+                maskgadget = chainmask["maskchain"][2]
                 otherregs[popsomereg["gadget"].split()[1]] = masked_value 
                 if(mask < 500):
                     for i in range(mask):
@@ -640,26 +639,47 @@ class ROPMakerX86(object):
  
 
                 #too handle if there a mov at the end 
-                if(len(chainmask["maskchain"]) == 3):
-                    movgadget = chainmask["maskchain"][2]
+                if(len(chainmask["maskchain"]) == 4):
+                    movgadget = chainmask["maskchain"][3]
                     printp.append(movgadget)
                     p += pack("<I", movgadget["vaddr"])
                     p += self.__custompadding(movgadget, otherregs)
                 
             
             # Case of non-iterative arithmetic masks
-            elif (chainmask["method"] == "add" or chainmask["method"] == "sub"):
+            elif (chainmask["method"] == "add" or chainmask["method"] == "sub" or chainmask["method"] == "xor"):
 
-                print("We have add/sub")
+                print("We have add/sub/xor")
 
-                mask, masked_addr = nh(self.__WORD_SIZE).CreateNonIterativeMask(value.to_bytes(4, byteorder="big"), chainmask["method"])
+                mask, masked_value = nh(self.__WORD_SIZE).CreateNonIterativeMask(value.to_bytes(4, byteorder="big"), chainmask["method"])
 
-                p = self.NonIterativeMask(mask, masked_addr, chainmask)
-                
+                print("xor mask:", mask)
 
-            # case of bitwise masks
-            elif (chainmask["method"] == "xor"):
-                print("We have XOR!!!")
+                printp.append(pack("<I", masked_value))
+                popsomereg = chainmask["maskchain"][0]
+                popsomereg = chainmask["maskchain"][1]
+                printp.append(popsomereg)
+
+                #p = self.NonIterativeMask(mask, masked_addr, chainmask)
+
+                p += pack("<I", maskchain["maskchain"][0]["vaddr"])
+                p += pack("<I", mask)
+                p += self.__custompadding(maskchain["maskchain"][0], otherregs)
+
+                p += pack("<I", maskchain["maskchain"][1]["vaddr"])
+                p += pack("<I", masked_addr)
+                p += self.__custompadding(maskchain["maskchain"][1], otherregs | { maskchain["maskchain"][1]["gadget"].split()[1] : mask})
+
+                # mask is always in the third position
+                p += pack("<I", maskchain["maskchain"][2]["vaddr"])
+                p += self.__custompadding(maskchain["maskchain"][2], otherregs)
+
+                # In the case there is a mov at the end 
+                if(len(chainmask["maskchain"]) == 4):
+                    movgadget = chainmask["maskchain"][3]
+
+                    p += pack("<I", movgadget["vaddr"])
+                    p += self.__custompadding(movgadget, otherregs)
 
             else:
                 print("NOTHING")
@@ -682,47 +702,11 @@ class ROPMakerX86(object):
                 printminp = printp 
 
 
-        '''
-        # Or it's a value that's to be added onto the stack
-        else:
-            # Stack needs to look like this
-
-            ##### POP DST #####
-            ## *unMasked Val ## -----
-            ### WRITE4WHERE ###     |   *unmasked Val is the pointer the to the location in memroy where we the ROPchain writes the unmasked value
-            ###### ARB <> #####     |   ARB <>. This is some arbitrary gadget that pops the unMaskedValue off the stack
-            #\\ UnMasked Val /# <----
-
-            p += pack("<I", popDst["vaddr"])
-
-            stack = stack + len(p)          # Get location of where to write to on stack
-
-            PointerToValue = stack
-
-            # Start of p_alt
-            #p_alt  = pack("<I", 0xFFFFFFFF)     # place holder for later on
-            p_alt  = self.__custompadding(popDst, {})   # RISKY!!! Unfortunately we can't make sure the value is still in the correct register as there is a NULL byte in the value we want (there padding wouldn't work here)
-
-            p_alt += pack("<I", write4where["vaddr"])
-            p_alt += self.__custompadding(write4where, {})
-
-            p_alt += pack("<I", arbPop["vaddr"])
-            p_alt += pack("<I", 0xFFDDFFEE)     # placeholder for where to be written to later on
-            p_alt += self.__custompadding(arbPop, {})
-
-            MemoryLocationOfValue = stack + len(p_alt)
-
-            stack = stack + MemoryLocationOfValue + 4
-
-            print("Memory: {0:8x}".format(MemoryLocationOfValue))
-            p += pack("<I", MemoryLocationOfValue)
-            p += p_alt
-        '''
-
-        print(mask,masked_value)
+        print(mask, masked_value)
         for printvalue in printminp:
             print(printvalue)
 
+        #print("SEX IT UP:", printp, minp)
         return minp
 
 
