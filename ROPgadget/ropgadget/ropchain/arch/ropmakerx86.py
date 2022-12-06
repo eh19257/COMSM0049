@@ -17,7 +17,7 @@ from collections import defaultdict
 class ROPMakerX86(object):
     def __init__(self, binary, gadgets, padding, execve, liboffset=0x0):
         self.__binary  = binary
-        self.__gadgets = gadgets #+ [{"vaddr" : 0xAACCDDCC, "gadget" : "xor ebx, esi ; ret"}, {"vaddr" : 0xEEFFEEDD, "gadget" : "pop ebx ; ret"}, {"vaddr" : 0xAABBBBCC, "gadget" : "pop esi ; ret"}]
+        self.__gadgets = gadgets + [{"vaddr" : 0xAACCDDCC, "gadget" : "xor ebx, esi ; ret"}, {"vaddr" : 0xEEFFEEDD, "gadget" : "pop ebx ; ret"}, {"vaddr" : 0xAABBBBCC, "gadget" : "pop esi ; ret"}]
 
         #print("BIG SEX", self.__gadgets)
         # If it's a library, we have the option to add an offset to the addresses
@@ -157,7 +157,7 @@ class ROPMakerX86(object):
 
                             chainmasklist.append(mcoutputdict)
 
-        sorted(chainmasklist, key=lambda x: x['weightofchain'])
+        chainmasklist = sorted(chainmasklist, key=lambda x: x['weightofchain'])
 
         return chainmasklist 
 
@@ -194,7 +194,6 @@ class ROPMakerX86(object):
 
             weight = weight + 1
 
-        outputdict = {}
         for mask in ["inc","dec"]: 
             for reg in ["eax","ebx","ecx","edx","esi","edi"]:
                 tmp = self.__lookingForSomeThing(mask + " %s" % reg)
@@ -894,7 +893,7 @@ class ROPMakerX86(object):
 
         popEbx = self.__lookingForSomeThing("pop ebx")
         MaskEbx =  self.GettingMaskChains("ebx","ebx")
-        print(MaskEbx)
+        print(MaskEbx[0])
         #used for shellcoded
         if not MaskEbx:
             print("\t[-] Can't find the 'ebx mask' instruction")
@@ -906,7 +905,6 @@ class ROPMakerX86(object):
 
         popEcx = self.__lookingForSomeThing("pop ecx")
         MaskEcx =  self.GettingMaskChains("ecx","ecx")
-        print(MaskEcx)
         #used for shellcoded
         if not MaskEcx:
             print("\t[-] Can't find the 'ebx mask' instruction")
