@@ -27,7 +27,7 @@ class ROPMakerX86(object):
         self.__WORD_SIZE = 4            ### MODIFIED
 
         self.possibledoubles = {}
-        self.possiblemask = {}
+        self.possiblemasks = {}
         self.possiblepops = {}
         self.possiblemovs = {}
 
@@ -117,26 +117,14 @@ class ROPMakerX86(object):
     def GettingMaskChains(self, regdst, regsrc):
 
         possibledoubles = self.possibledoubles
-        possiblemasks = self.possiblemask
+        possiblemasks = self.possiblemasks
         possiblepops = self.possiblepops
         possiblemovs = self.possiblemovs
         possiblepushs = self.possiblepushs
 
-        bestmc= None #its MF doom he the best mc
 
-        def setbestmaskchain(bmc,mcd):
-
-            if(bmc is None):
-                return mcd 
-
-            if(mcd["double"]):
-                if(not bmc["double"] or mcd["weightofchain"] < bmc["weightofchain"]):
-                    return mcd 
-            else:
-                if(not bmc["double"] and mcd["weightofchain"] < bmc["weightofchain"]):
-                    return mcd 
-
-            return bmc 
+        chainmasklist = []
+        #bestmc= None its MF doom he the best mc
 
         for regsrc2 in ["eax","ebx","ecx","edx","esi","edi"]:
             double = possibledoubles[regdst] or possibledoubles[regsrc2]
@@ -149,7 +137,7 @@ class ROPMakerX86(object):
                                 "weightofchain":weight,
                                 "pushsrc" : possiblepushs[regsrc2]}
 
-                bestmc = setbestmaskchain(bestmc,mcoutputdict)
+                chainmasklist.append(mcoutputdict)
 
             for regdst2 in ["eax","ebx","ecx","edx","esi","edi"]:
                 if ((regdst2,regsrc2) in possiblemasks and regsrc2 in possiblepops):
@@ -166,10 +154,11 @@ class ROPMakerX86(object):
                                             "weightofchain":weight,
                                             "pushsrc": possiblepushs[regsrc2]}
 
-                            setbestmaskchain(bestmc,mcoutputdict)
+                            chainmasklist.append(mcoutputdict)
 
+        sorted(chainmasklist, key=lambda x: x['weightofchain'])
 
-        return bestmc
+        return chainmasklist 
 
 
     def __lookingPossiableMask(self):
@@ -512,42 +501,6 @@ class ROPMakerX86(object):
         outputfile.write(p)
         outputfile.close()
 
-    def putEcx(self,value,popEcx,maskEcx,regs):
-        p = b''
-        if not nh(self.__WORD_SIZE).contains_null(pack('<I', value)):
-            p += pack('<I', popEcx["vaddr"]) 
-            p += pack('<I', value)
-            p += self.__custompadding(popEcx, regs)  
-            return p
-
-        else:
-            mask, masked_value = nh(self.__WORD_SIZE).CreateIterativeMask(value.to_bytes(4, byteorder="big"), maskEcx[2][1]) 
-
-            #assume its inc of dec so mask is value of repeats 
-            if(maskEcx[2][0]!=0):
-                p += pack('<I', maskEcx[0][0]["vaddr"]) 
-                p += pack('<I', masked_value)
-                p += self.__custompadding(maskEcx[0][0], regs)
-                for i in range(1,len(maskEcx[0])):
-
-                    if(maskEcx[2][0] == i):
-                        p += pack('<I', maskEcx[0][i]["vaddr"])
-                    else:
-                        p += pack('<I',maskEcx[0][i]["vaddr"])
-                        p += self.__custompadding(maskEcx[0][i], regs) * mask
-
-                return p
-            
-            else:
-                #maskchain just one gadget being just need apply mask 
-                p += pack('<I', popEcx["vaddr"]) 
-                p += pack('<I', masked_value)
-                p += self.__custompadding(popEcx, regs) * mask
-                #need to use mask for xor or inc or dec etc
-                #assume its inc of dec so mask is value of repeats 
-                p += pack('<I',maskEcx[0][0]["vaddr"])
-                return p
-
     def arbitrary_shell_code(self, write4where, popDst, popSrc, xorSrc, xorEax, incEax, popEbx,maskEbx, popEcx, maskEcx,popEdx, syscall, chainmask):
 
         sects = self.__binary.getDataSections()
@@ -571,7 +524,7 @@ class ROPMakerX86(object):
 
         ###############
 
-        p += self.GenerateMaskRopChain(0xAABBCC00, chainmask,{})
+        p += self.GenerateMaskRopChain(0x00000030, chainmask,{})
 
         #print("".join('\\x{:02x}'.format(i) for i in p))
 
@@ -642,64 +595,92 @@ class ROPMakerX86(object):
 
      # Apply mask rop chain
     
-    def GenerateMaskRopChain(self,value, chainmask,otherregs ,gadget_address=False):
+    def GenerateMaskRopChain(self,value, listchainmask,otherregs ,gadget_address=False):
         
         #p = b'A'*44
+        minsizeofp = 0
+        minp = b''
+        printminp = []
+        for chainmask in listchainmask:
+            print(chainmask["method"])
 
-        p = b''
-    
-        if (chainmask["method"] == "dec" or chainmask["method"] == "inc"):
-            # Use DEC as the (un)masker
-            print("We have INC/DEC!!!")
+        for chainmask in listchainmask:
 
-            mask, masked_value = nh(self.__WORD_SIZE).CreateIterativeMask(value.to_bytes(4, byteorder="big"), chainmask["method"]) 
-
-            print(mask, masked_value)
-            print(masked_value.to_bytes(4, byteorder="big"))
-            # pop into some reg
-            popsomereg = chainmask["maskchain"][0]
-            p += pack("<I", popsomereg["vaddr"])
-            p += pack("<I", masked_addr)
-            p += self.__custompadding(popsomereg, otherregs)
-
-            #mask is always on the second in maskchain
-            maskgadget = chainmask["maskchain"][1]
-            otherregs[popsomereg["gadget"].split()[1]] = masked_value 
-            for i in range(mask):
-
-                p += pack("<I", maskgadget["vaddr"])
-                p += self.__custompadding(maskgadget["vaddr"], otherregs)
-            
+            printp = []
+            p = b''
         
-        # Case of non-iterative arithmetic masks
-        elif (chainmask["method"] == "add" or chainmask["method"] == "sub"):
+            if (chainmask["method"] == "dec" or chainmask["method"] == "inc"):
+                # Use DEC as the (un)masker
 
-            print("We have add/sub")
+                mask, masked_value = nh(self.__WORD_SIZE).CreateIterativeMask(value.to_bytes(4, byteorder="big"), chainmask["method"]) 
+                print(mask)
+                # pop into some reg
+                printp.append(pack("<I", masked_value))
+                popsomereg = chainmask["maskchain"][0]
+                printp.append(popsomereg)
+                p += pack("<I", popsomereg["vaddr"])
+                p += pack("<I", masked_value)
+                p += self.__custompadding(popsomereg, otherregs)
 
-            mask, masked_addr = nh(self.__WORD_SIZE).CreateNonIterativeMask(value.to_bytes(4, byteorder="big"), chainmask["method"])
+                #mask is always on the second in maskchain
+                maskgadget = chainmask["maskchain"][1]
+                otherregs[popsomereg["gadget"].split()[1]] = masked_value 
+                if(mask < 500):
+                    for i in range(mask):
 
-            p = self.NonIterativeMask(mask, masked_addr, chainmask)
-            
+                        printp.append(maskgadget)
+                        p += pack("<I", maskgadget["vaddr"])
+                        p += self.__custompadding(maskgadget, otherregs)
+                else:
+                    for i in range(500):
 
-        # case of bitwise masks
-        elif (chainmask["method"] == "xor"):
-            print("We have XOR!!!")
+                        printp.append(maskgadget)
+                        p += pack("<I", maskgadget["vaddr"])
+                        p += self.__custompadding(maskgadget, otherregs)
+ 
 
-        else:
-            print("NOTHING")
-
-        ##### post processing for #####
-
-
-        # If the value that has been passed through is an address then we need to push it onto the stack so it can the be run
-        if (gadget_address):
-            if("pushsrc" in chainmask):
-                p += pack("<I", chainmask["pushsrc"]["vaddr"])
-                p += self.__custompadding(chainmask["pushsrc"], otherregs)
-            else:
-                print("does not have push for %s",chainmask["srcanddst"][0])
-                exit()
+                #too handle if there a mov at the end 
+                if(len(chainmask["maskchain"]) == 3):
+                    movgadget = chainmask["maskchain"][2]
+                    printp.append(movgadget)
+                    p += pack("<I", movgadget["vaddr"])
+                    p += self.__custompadding(movgadget, otherregs)
                 
+            
+            # Case of non-iterative arithmetic masks
+            elif (chainmask["method"] == "add" or chainmask["method"] == "sub"):
+
+                print("We have add/sub")
+
+                mask, masked_addr = nh(self.__WORD_SIZE).CreateNonIterativeMask(value.to_bytes(4, byteorder="big"), chainmask["method"])
+
+                p = self.NonIterativeMask(mask, masked_addr, chainmask)
+                
+
+            # case of bitwise masks
+            elif (chainmask["method"] == "xor"):
+                print("We have XOR!!!")
+
+            else:
+                print("NOTHING")
+
+            ##### post processing for #####
+
+
+            # If the value that has been passed through is an address then we need to push it onto the stack so it can the be run
+            if (gadget_address):
+                if("pushsrc" in chainmask):
+                    p += pack("<I", chainmask["pushsrc"]["vaddr"])
+                    p += self.__custompadding(chainmask["pushsrc"], otherregs)
+                else:
+                    print("does not have push for %s",chainmask["srcanddst"][0])
+                    exit()
+
+            if(minp == b'' or len(p) < minsizeofp):
+                minp = p
+                minsizeofp = len(p)
+                printminp = printp 
+
 
         '''
         # Or it's a value that's to be added onto the stack
@@ -738,8 +719,11 @@ class ROPMakerX86(object):
             p += p_alt
         '''
 
+        print(mask,masked_value)
+        for printvalue in printminp:
+            print(printvalue)
 
-        return p
+        return minp
 
 
     # Used to create a ROPchain for non iteratie masks (i.e. inc and dec). These chains are the most efficient
@@ -799,7 +783,7 @@ class ROPMakerX86(object):
                 popDst = storedgadgets[1]
                 popSrc = storedgadgets[2]
                 xorSrc = storedgadgets[3]
-                chainmask = storedgadgets[4]
+                listchainmask = storedgadgets[4]
                 storedgadgets = storedgadgetsAlreadyTested
                 break
 
@@ -824,23 +808,14 @@ class ROPMakerX86(object):
             #getting second source
             #chainmask = self.__lookingForMasks(write4where[1], write4where[2], possiablemasks, possiablemovs, possiablepops,possiabledoubles)
             # I not sure about writing to src karl, not sure about it one bit
-            chainmask = self.GettingMaskChains(write4where[2], write4where[2])
+            listchainmask = self.GettingMaskChains(write4where[2], write4where[2])
             
-            if(not chainmask):
+            if(not listchainmask):
                 print("\t[-] Can't find the 'mask chain' gadget. Try with another 'mov [r], r'\n")
                 gadgetsAlreadyTested += [write4where[0]]
                 continue
             
-            # We need to add a push to chainmask
-            pushChainMask = self.__lookingForSomeThing("push %s" % chainmask["srcanddst"][0])
-            if (not pushChainMask):
-                print("\t[-]Can't find the 'push' gadget associated with the chainmask. Try with another 'mov [r], r'")
-                gadgetsAlreadyTested += [write4where[0]]
-                continue
 
-            # Add the 'push' gadget to the end of the chainmask
-            # I not sure about that karl
-            chainmask["maskchain"].append(pushChainMask)
 
             '''
             movSrcToEBX = self.__lookingForSomeThing("mov ebx, %s" % write4where[2])
@@ -861,36 +836,56 @@ class ROPMakerX86(object):
                 gadgetsAlreadyTested += [write4where[0]]
                 continue
             '''
+
             if(len(storedgadgets) != 0):
-                if(storedgadgets[4]["weight"] == 0):
+
+
+                if(storedgadgets[4][0]["weightofchain"] == 0):
 
                     print("\t[-] found a worst vaild comb'\n")
                     gadgetsAlreadyTested += [write4where[0]]
                     continue
 
-                if(storedgadgets[4]["double"]):
-                    print("\t[-] found a worst vaild comb'\n")
-                    gadgetsAlreadyTested += [write4where[0]]
-                    continue
-                    
-                else:
+                if(listchainmask[0]["weightofchain"] == 0):
 
-                    if(storedgadgets[4]["weight"] > chainmask["weight"]):
+                    storedgadgets = [write4where,popDst,popSrc,xorSrc,listchainmask]
+                    storedgadgetsAlreadyTested = gadgetsAlreadyTested
+
+                    gadgetsAlreadyTested += [write4where[0]]
+
+                    print("\t[-] found a vaild comb'\n")
+                    continue
+
+                for chainmask in storedgadgets[4]:
+
+                    if(chainmask["doublegadget"]):
                         print("\t[-] found a worst vaild comb'\n")
                         gadgetsAlreadyTested += [write4where[0]]
                         continue
 
-                    else:
-                        storedgadgets = [write4where,popDst,popSrc,xorSrc,chainmask]
-                        storedgadgetsAlreadyTested = gadgetsAlreadyTested
-
+                for chainmask in listchainmask:       
+                
+                    if(chainmask["doublegadget"]):
+                        print("\t[-] found a worst vaild comb'\n")
                         gadgetsAlreadyTested += [write4where[0]]
-
-                        print("\t[-] found a vaild comb'\n")
                         continue
-                        
+
+                if(listchainmask[0]["weightofchain"] > storedgadgets[4][0]["weightofchain"]):
+                    print("\t[-] found a worst vaild comb'\n")
+                    gadgetsAlreadyTested += [write4where[0]]
+                    continue
+
+                else:
+                    storedgadgets = [write4where,popDst,popSrc,xorSrc,listchainmask]
+                    storedgadgetsAlreadyTested = gadgetsAlreadyTested
+
+                    gadgetsAlreadyTested += [write4where[0]]
+
+                    print("\t[-] found a vaild comb'\n")
+                    continue
+                
             else:
-                storedgadgets = [write4where,popDst,popSrc,xorSrc,chainmask]
+                storedgadgets = [write4where,popDst,popSrc,xorSrc,listchainmask]
                 storedgadgetsAlreadyTested = gadgetsAlreadyTested
 
                 gadgetsAlreadyTested += [write4where[0]]
@@ -953,7 +948,7 @@ class ROPMakerX86(object):
 
         #self.__buildRopChain(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall)
         #self.customRopChain(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall)
-        self.arbitrary_shell_code(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx,MaskEbx, popEcx,MaskEcx, popEdx, syscall, chainmask)
+        self.arbitrary_shell_code(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx,MaskEbx, popEcx,MaskEcx, popEdx, syscall, listchainmask)
 
 
         #print(self.GenerateMaskRopChain(0xFFFFFF00, popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall, chainmask, isaddr=True))

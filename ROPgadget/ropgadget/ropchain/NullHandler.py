@@ -43,7 +43,7 @@ class NullHandler():
 
         if (mask_type == "add"):
             direction = -1
-        print(value)
+
         for b in value:
 
             for i in range(0, 256, direction):
