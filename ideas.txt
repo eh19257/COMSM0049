@@ -1,1 +1,10 @@
 Binary files parsed in binary ROPgadget/ropgadget/binary.py? Check out self.__rawBinary & self.__Binary
+
+Do the 4 stages then do aslr?
+
+Aim to finish stage 1, 2 and 3 by next Thurday
+
+Stage 1 auto padding ::
+
+	Going to brute force the padding up to 100
+	(optional) do a cylic string maybe increase the size via doubling like binary search 

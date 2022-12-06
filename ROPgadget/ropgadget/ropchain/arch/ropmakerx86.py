@@ -131,11 +131,11 @@ class ROPMakerX86(object):
             if ((regdst,regsrc2) in possiblemasks and regsrc2 in possiblepops):
                 mask,method,weight = possiblemasks[(regdst,regsrc2)]
                 mcoutputdict = {"maskchain":[possiblepops[regsrc2],mask],
-                                "srcanddst":[regsrc2,regdst],
+                                "masksrcanddst":[regsrc2,regdst],
                                 "method":method,
                                 "doublegadget":double,
                                 "weightofchain":weight,
-                                "pushsrc" : possiblepushs[regsrc2]}
+                                "pushdst" : possiblepushs[regdst]}
 
                 chainmasklist.append(mcoutputdict)
 
@@ -148,11 +148,11 @@ class ROPMakerX86(object):
                             mask,method,weight = possiblemasks[(regdst2,regsrc2)]
                             mov = possiblemovs[(regdst,regdst2)]
                             mcoutputdict = {"maskchain":[possiblepops[regsrc2],mask,mov],
-                                            "srcanddst":[regsrc2,regdst2],
+                                            "masksrcanddst":[regsrc2,regdst2],
                                             "method":method,
                                             "doublegadget":double,
                                             "weightofchain":weight,
-                                            "pushsrc": possiblepushs[regsrc2]}
+                                            "pushdst": possiblepushs[regdst2]}
 
                             chainmasklist.append(mcoutputdict)
 
@@ -669,11 +669,11 @@ class ROPMakerX86(object):
 
             # If the value that has been passed through is an address then we need to push it onto the stack so it can the be run
             if (gadget_address):
-                if("pushsrc" in chainmask):
-                    p += pack("<I", chainmask["pushsrc"]["vaddr"])
-                    p += self.__custompadding(chainmask["pushsrc"], otherregs)
+                if("pushdst" in chainmask):
+                    p += pack("<I", chainmask["pushdst"]["vaddr"])
+                    p += self.__custompadding(chainmask["pushdst"], otherregs)
                 else:
-                    print("does not have push for %s",chainmask["srcanddst"][0])
+                    print("does not have push for %s",chainmask["masksrcanddst"][0])
                     exit()
 
             if(minp == b'' or len(p) < minsizeofp):
