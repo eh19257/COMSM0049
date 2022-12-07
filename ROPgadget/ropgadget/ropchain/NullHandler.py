@@ -23,18 +23,22 @@ class NullHandler():
         mask = b''
         masked_addr = b''
         direction = 1
+        count = 0
         
         for i in range(0x01010101, 0xFFFFFFFF + 1):
             byte_mask = i.to_bytes(self.__WORD_SIZE, byteorder="big")
-            byte_masked_addr = self.Apply_Mask(byte_mask, value.to_bytes(self.__WORD_SIZE, byteorder="big"), mask_type)
+            byte_masked_addr = self.Apply_Mask(byte_mask,value,mask_type)
 
-            if (not (self.contains_null(byte_mask))):
-                if (not (self.contains_null(byte_masked_addr))):
-                    break
-            
-            # we try a new mask
+            if (not (self.contains_null(byte_mask)) and not (self.contains_null(byte_masked_addr))):
+                break
+
+            count = count + 1
+            if(count > 20000):
+                return None
+
+        # we try a new mask
     
-        return int.from_bytes(mask, "big"), int.from_bytes(masked_addr, "big")
+        return int.from_bytes(byte_mask, "big"), int.from_bytes(byte_masked_addr, "big")
     
     # Mask for iteractive mask generation (i.e. for inc and dec) maskChains
     def CreateIterativeMask(self, value, mask_type):
@@ -62,16 +66,16 @@ class NullHandler():
     # Applys some masking operation for the iterative mask
     def Apply_Mask(self, mask, value, mask_type):
         if   (mask_type == "xor"):
-            return self.xor_byte(mask.to_bytes(self.__WORD_SIZE, byteorder="big"), value.to_bytes(self.__WORD_SIZE, byteorder="big"))
+            return self.xor_byte(mask, value)
         
         # value = mask_value + mask ==> mask_value = value - mask
         elif (mask_type == "add"):
-            mask_value = (value - mask) % (self.__WORD_SIZE * 256)
+            mask_value = (int.from_bytes(value, "big") - int.from_bytes(mask, "big")) % (self.__WORD_SIZE * 256)
             return mask_value.to_bytes(self.__WORD_SIZE, byteorder="big")
 
         # value = mask_value - mask ==> mask_value = mask + value
         elif (mask_type == "sub"):
-            mask_value = (mask + value) % (self.__WORD_SIZE * 256)
+            mask_value = (int.from_bytes(value, "big") + int.from_bytes(mask, "big")) % (self.__WORD_SIZE * 256)
             return mask_value.to_bytes(self.__WORD_SIZE, byteorder="big")
 
         # value = mask_value - mask ==> mask_value = value + mask

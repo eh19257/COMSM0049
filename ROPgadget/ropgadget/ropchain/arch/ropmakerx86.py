@@ -125,7 +125,7 @@ class ROPMakerX86(object):
 
 
         chainmasklist = []
-        #bestmc= None its MF doom he the best mc
+        #bestmc= None its MF doom he the besGenerateMaskRopChaint mc
 
         for regsrc2 in ["eax","ebx","ecx","edx","esi","edi"]:
             double = possibledoubles[regdst] or possibledoubles[regsrc2]
@@ -599,8 +599,6 @@ class ROPMakerX86(object):
         minsizeofp = 0
         minp = b''
         printminp = []
-        for chainmask in listchainmask:
-            print(chainmask["method"])
 
         for chainmask in listchainmask:
 
@@ -611,7 +609,6 @@ class ROPMakerX86(object):
                 # Use DEC as the (un)masker
 
                 mask, masked_value = nh(self.__WORD_SIZE).CreateIterativeMask(value.to_bytes(4, byteorder="big"), chainmask["method"]) 
-                print(mask)
                 # pop into some reg
                 printp.append(pack("<I", masked_value))
                 popsomereg = chainmask["maskchain"][0]
@@ -630,12 +627,7 @@ class ROPMakerX86(object):
                         p += pack("<I", maskgadget["vaddr"])
                         p += self.__custompadding(maskgadget, otherregs)
                 else:
-                    for i in range(500):
-
-                        printp.append(maskgadget)
-                        p += pack("<I", maskgadget["vaddr"])
-                        p += self.__custompadding(maskgadget, otherregs)
- 
+                    continue
 
                 #too handle if there a mov at the end 
                 if(len(chainmask["maskchain"]) == 4):
@@ -648,30 +640,34 @@ class ROPMakerX86(object):
             # Case of non-iterative arithmetic masks
             elif (chainmask["method"] == "add" or chainmask["method"] == "sub" or chainmask["method"] == "xor"):
 
-                print("We have add/sub/xor")
+                print("mask : %s" %chainmask["method"])
+                tmp = nh(self.__WORD_SIZE).CreateNonIterativeMask(value.to_bytes(4, byteorder="big"), chainmask["method"])
+                if (tmp is None):
+                    continue
 
-                mask, masked_value = nh(self.__WORD_SIZE).CreateNonIterativeMask(value.to_bytes(4, byteorder="big"), chainmask["method"])
-
-                print("xor mask:", mask)
+                mask, masked_value = tmp
+                print(str(pack("<I", masked_value)))
+                print(str(pack("<I", mask)))
 
                 printp.append(pack("<I", masked_value))
-                popsomereg = chainmask["maskchain"][0]
                 popsomereg = chainmask["maskchain"][1]
                 printp.append(popsomereg)
 
                 #p = self.NonIterativeMask(mask, masked_addr, chainmask)
 
-                p += pack("<I", maskchain["maskchain"][0]["vaddr"])
+                p += pack("<I", chainmask["maskchain"][0]["vaddr"])
                 p += pack("<I", mask)
-                p += self.__custompadding(maskchain["maskchain"][0], otherregs)
+                p += self.__custompadding(chainmask["maskchain"][0], otherregs)
 
-                p += pack("<I", maskchain["maskchain"][1]["vaddr"])
-                p += pack("<I", masked_addr)
-                p += self.__custompadding(maskchain["maskchain"][1], otherregs | { maskchain["maskchain"][1]["gadget"].split()[1] : mask})
+                p += pack("<I", chainmask["maskchain"][1]["vaddr"])
+                p += pack("<I", masked_value)
+                tmp = otherregs
+                tmp[chainmask["maskchain"][1]["gadget"].split()[1]] = mask
+                p += self.__custompadding(chainmask["maskchain"][1], tmp)
 
                 # mask is always in the third position
-                p += pack("<I", maskchain["maskchain"][2]["vaddr"])
-                p += self.__custompadding(maskchain["maskchain"][2], otherregs)
+                p += pack("<I", chainmask["maskchain"][2]["vaddr"])
+                p += self.__custompadding(chainmask["maskchain"][2], otherregs)
 
                 # In the case there is a mov at the end 
                 if(len(chainmask["maskchain"]) == 4):
@@ -701,9 +697,8 @@ class ROPMakerX86(object):
                 printminp = printp 
 
 
-        print(mask, masked_value)
-        for printvalue in printminp:
-            print(printvalue)
+        #for printvalue in printminp:
+            #print(printvalue)
 
         #print("SEX IT UP:", printp, minp)
         return minp
@@ -711,31 +706,7 @@ class ROPMakerX86(object):
 
     # Used to create a ROPchain for non iteratie masks (i.e. inc and dec). These chains are the most efficient
     # Based off the old function CM
-    def NonIterativeMask(self, mask, mask_addr, chainmask):
-        # Creates a stack of this shape
-        
-        ##### POP SRC #####
-        ### Masked_addr ###
-        ##### POP DST #####
-        ####### Mask ######
-        ### Apply MASK  ### <-- Result stays in SRC
-
-
-        b =  pack("<I", popSrc["vaddr"])
-        b += pack("<I", int_masked_addr)#" + str(self.__WORD_SIZE) + "s", masked_addr )
-        b += self.__custompadding(popSrc, regAlreadSetted )        # merge any previous regs with the current one that's just been popped
-        
-        b += pack("<I", popDst["vaddr"])
-        b += pack("<" + str(self.__WORD_SIZE) + "s", mask )
-        b += self.__custompadding(popDst, regAlreadSetted | { popSrc["gadget"].split()[1]: int_masked_addr })
-        
-        # b += pack("<I", xorSrcDst)      # XOR PACK
-        # Add padding for XOR
-
-        return b
     
-
-
 
     def __generate(self):
 
