@@ -20,9 +20,6 @@ class NullHandler():
     # add to
 
     def CreateNonIterativeMask(self, value, mask_type):
-        mask = b''
-        masked_addr = b''
-        direction = 1
         count = 0
         
         for i in range(0x01010101, 0xFFFFFFFF + 1):

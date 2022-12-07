@@ -17,7 +17,7 @@ from collections import defaultdict
 class ROPMakerX86(object):
     def __init__(self, binary, gadgets, padding, execve, liboffset=0x0):
         self.__binary  = binary
-        self.__gadgets = gadgets + [{"vaddr" : 0xAACCDDCC, "gadget" : "xor ebx, esi ; ret"}, {"vaddr" : 0xEEFFEEDD, "gadget" : "pop ebx ; ret"}, {"vaddr" : 0xAABBBBCC, "gadget" : "pop esi ; ret"}]
+        self.__gadgets = gadgets #+ [{"vaddr" : 0xAACCDDCC, "gadget" : "xor ebx, esi ; ret"}, {"vaddr" : 0xEEFFEEDD, "gadget" : "pop ebx ; ret"}, {"vaddr" : 0xAABBBBCC, "gadget" : "pop esi ; ret"}]
 
         #print("BIG SEX", self.__gadgets)
         # If it's a library, we have the option to add an offset to the addresses
@@ -128,7 +128,7 @@ class ROPMakerX86(object):
         #bestmc= None its MF doom he the besGenerateMaskRopChaint mc
 
         for regsrc2 in ["eax","ebx","ecx","edx","esi","edi"]:
-            double = possibledoubles[regdst] or possibledoubles[regsrc2]
+            double = possibledoubles[regdst] 
             if ((regdst,regsrc2) in possiblemasks and regsrc2 in possiblepops and regdst in possiblepops):
                 mask,method,weight = possiblemasks[(regdst,regsrc2)]
                 mcoutputdict = {"maskchain":[possiblepops[regsrc2], possiblepops[regdst], mask],
@@ -143,9 +143,9 @@ class ROPMakerX86(object):
             for regdst2 in ["eax","ebx","ecx","edx","esi","edi"]:
                 if ((regdst2,regsrc2) in possiblemasks and regsrc2 in possiblepops and regsrc2 in possiblepops):
 
+                    double = possibledoubles[regdst2] 
                     if(regsrc != regsrc2 and regsrc != regdst2):
                         if((regdst,regdst2) in possiblemovs):
-                            double = double or possibledoubles[regdst2]
                             mask,method,weight = possiblemasks[(regdst2,regsrc2)]
                             mov = possiblemovs[(regdst,regdst2)]
                             mcoutputdict = {"maskchain":[possiblepops[regsrc2], possiblepops[regdst2], mask, mov],
@@ -610,16 +610,41 @@ class ROPMakerX86(object):
 
                 mask, masked_value = nh(self.__WORD_SIZE).CreateIterativeMask(value.to_bytes(4, byteorder="big"), chainmask["method"]) 
                 # pop into some reg
+
+
                 printp.append(pack("<I", masked_value))
                 popsomereg = chainmask["maskchain"][0]
                 printp.append(popsomereg)
                 p += pack("<I", popsomereg["vaddr"])
                 p += pack("<I", masked_value)
                 p += self.__custompadding(popsomereg, otherregs)
-
                 #mask is always on the third in maskchain
                 maskgadget = chainmask["maskchain"][2]
                 otherregs[popsomereg["gadget"].split()[1]] = masked_value 
+                doublegadget = chainmask["doublegadget"]
+
+                doubleinc = None 
+                if(chainmask["method"] == "inc" and chainmask["doublegadget"]):
+                    newmasked_value = masked_value
+                    for i in range(50):
+                        newmasked_value = (newmasked_value + newmasked_value) 
+                        if(newmasked_value > 0xFFFFFFFF):
+                            newmasked_value = newmasked_value - 0xFFFFFFFF 
+
+                        tmp = value - masked_value 
+                        if(tmp > 0):
+                            if(doubleinc is None or sum(doubleinc) > i + tmp):
+                                doubleinc = [i,tmp]
+
+                if not doubleinc is None and sum(doubleinc) < mask:
+                    for i in range(doubleinc[0]):
+
+                        printp.append(doublegadget)
+                        p += pack("<I", doublegadget["vaddr"])
+                        p += self.__custompadding(doublegadget, otherregs)
+                    
+                    mask = doubleinc[1]
+                    
                 if(mask < 500):
                     for i in range(mask):
 
