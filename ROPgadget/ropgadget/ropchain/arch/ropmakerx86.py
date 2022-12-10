@@ -521,7 +521,7 @@ class ROPMakerX86(object):
         #byte_loc_of_shellcode = loc_of_shellcode.to_bytes(4, byteorder="big")
 
         ###############
-
+        #this needs to pop in ebx or ecx, has at moment its using the normal chainmask
         p += self.GenerateMaskRopChain(0x00000030, chainmask, {})
 
         #print("".join('\\x{:02x}'.format(i) for i in p))
@@ -590,6 +590,13 @@ class ROPMakerX86(object):
         file.write(p)
         file.close()
 
+    def testingmasking(self, write4where, popDst, popSrc, xorSrc, xorEax, incEax, popEbx,maskEbx, popEcx, maskEcx,popEdx, syscall, chainmask):
+     
+        p = b'\x41' * 44
+        p += self.GenerateMaskRopChain(0x00000030, maskEcx, {})
+
+        file = open("test_ROP", "wb")
+        file.write(p)
 
      # Apply mask rop chain
     
@@ -602,6 +609,8 @@ class ROPMakerX86(object):
 
         for chainmask in listchainmask:
 
+            print(chainmask)
+
             printp = []
             p = b''
         
@@ -610,6 +619,8 @@ class ROPMakerX86(object):
 
                 mask, masked_value = nh(self.__WORD_SIZE).CreateIterativeMask(value.to_bytes(4, byteorder="big"), chainmask["method"]) 
                 # pop into some reg
+
+                print(mask,masked_value)
 
 
                 printp.append(pack("<I", masked_value))
@@ -652,6 +663,7 @@ class ROPMakerX86(object):
                         p += pack("<I", maskgadget["vaddr"])
                         p += self.__custompadding(maskgadget, otherregs)
                 else:
+
                     continue
 
                 #too handle if there a mov at the end 
@@ -716,7 +728,8 @@ class ROPMakerX86(object):
                     print("does not have push for %s",chainmask["masksrcanddst"][0])
                     exit()
 
-            if(minp == b'' or len(p) < minsizeofp):
+
+            if(minp == b'' or (len(p) < minsizeofp and p != b'')):
                 minp = p
                 minsizeofp = len(p)
                 printminp = printp 
@@ -725,7 +738,6 @@ class ROPMakerX86(object):
         #for printvalue in printminp:
             #print(printvalue)
 
-        #print("SEX IT UP:", printp, minp)
         return minp
 
 
@@ -926,8 +938,8 @@ class ROPMakerX86(object):
 
         #self.__buildRopChain(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall)
         #self.customRopChain(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall)
-        self.arbitrary_shell_code(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx,MaskEbx, popEcx,MaskEcx, popEdx, syscall, listchainmask)
-
+        #self.arbitrary_shell_code(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx,MaskEbx, popEcx,MaskEcx, popEdx, syscall, listchainmask)
+        self.testingmasking(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx,MaskEbx, popEcx,MaskEcx, popEdx, syscall, listchainmask)
 
         #print(self.GenerateMaskRopChain(0xFFFFFF00, popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall, chainmask, isaddr=True))
     
