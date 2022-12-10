@@ -18,13 +18,16 @@ import ropgadget.updateAlert
 import ropgadget.version
 
 
-def main(execve):
+def main(execve, arguments, padding):
     import sys
     from   ropgadget.args import Args
     from   ropgadget.core import Core
     try:
-        args = Args()
+        args = Args(arguments)
     except ValueError as e:
         print(e)
         sys.exit(-1)
-    sys.exit(0 if Core(args.getArgs(), execve).analyze() else 1)            ### MODIFIED
+    
+    if (padding is None):
+        padding = 44
+    sys.exit(0 if Core(args.getArgs(), execve, padding).analyze() else 1)            ### MODIFIED
