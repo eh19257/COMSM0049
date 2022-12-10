@@ -35,7 +35,7 @@ int main(int argc, char *argv[])
 		return (0);
 	}
 	printf("file opened\n");
-	fread(buffer, 699, 1, file);
+	fread(buffer, 9999, 1, file);
 	fclose(file);
 	copyData(buffer);
 	return (0);

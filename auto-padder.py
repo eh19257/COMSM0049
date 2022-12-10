@@ -145,7 +145,7 @@ def find_BOF(vulnerableFile, inputType):
 def handle_args():
     desc = '''
      ________________
-    < auto-wadder.py >
+    < auto-padder.py >
      ----------------
         \   ^__^
          \  (oo)\_______
@@ -153,7 +153,7 @@ def handle_args():
                 ||----w |
                 ||     ||
     
-    Welcome to auto-wadder.py! This program automatically finds the length of padding/wadding that is require to exploit some buffer overflow expolit.
+    Welcome to auto-wadder.py! This program automatically finds the length of padding that is require to exploit some buffer overflow expolit.
     '''
 
     # create parser

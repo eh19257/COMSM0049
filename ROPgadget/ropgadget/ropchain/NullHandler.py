@@ -39,24 +39,32 @@ class NullHandler():
     
     # Mask for iteractive mask generation (i.e. for inc and dec) maskChains
     def CreateIterativeMask(self, value, mask_type):
-        mask = b''
-        masked_addr = b''
-        direction = 1
+        value = int.from_bytes(value, "big")
 
-        if (mask_type == "inc"):
-            direction = -1
+        direction = -1
 
-        for b in value:
+        # Case of dec then we need to add our mask
+        if (mask_type == "dec"):
+            direction = 1
 
-            for i in range(0, 256, direction):
-                byte_mask = i#.to_bytes(1, byteorder="big")
-                byte_masked_addr = self.Apply_Mask(byte_mask, b, mask_type)#.to_bytes(1, byteorder="big"), mask_type)
+        mask = 0
+        masked_val = 0
 
-                if (not (self.contains_null(byte_masked_addr))):
-                    mask += byte_mask.to_bytes(1, byteorder="big")
-                    masked_addr += byte_masked_addr
-                    break
+        for i in range(1, 0xFFFFFFFF + 1):
+            mask = i
+            masked_val = (value + (direction * mask)) % (0xFFFFFFFF + 1)
+
+            if (not (self.contains_null(masked_val.to_bytes(self.__WORD_SIZE, "big"))) ):
+                break
         
+        return mask, masked_val
+    
+        print("Mask it:", mask)
+        print("Mask as int:", int.from_bytes(mask, "big"))
+
+        print("masked_addr it:", masked_addr)
+        print("masked_addr as int:", int.from_bytes(masked_addr, "big"))
+
         return int.from_bytes(mask, "big"), int.from_bytes(masked_addr, "big")
 
 
@@ -67,12 +75,12 @@ class NullHandler():
         
         # value = mask_value + mask ==> mask_value = value - mask
         elif (mask_type == "add"):
-            mask_value = (int.from_bytes(value, "big") - int.from_bytes(mask, "big")) % (self.__WORD_SIZE * 256)
+            mask_value = (int.from_bytes(value, "big") - int.from_bytes(mask, "big")) % (2**(self.__WORD_SIZE * 8))
             return mask_value.to_bytes(self.__WORD_SIZE, byteorder="big")
 
         # value = mask_value - mask ==> mask_value = mask + value
         elif (mask_type == "sub"):
-            mask_value = (int.from_bytes(value, "big") + int.from_bytes(mask, "big")) % (self.__WORD_SIZE * 256)
+            mask_value = (int.from_bytes(value, "big") + int.from_bytes(mask, "big")) % (2**(self.__WORD_SIZE * 8))
             return mask_value.to_bytes(self.__WORD_SIZE, byteorder="big")
 
         # value = mask_value - mask ==> mask_value = value + mask
@@ -110,3 +118,7 @@ class NullHandler():
 #print(NullHandler().contains_null(foo))
 
 #print(NullHandler().CreateArithmeticMask(b'\xFF\xFF\x00\xFF', "dec"))
+
+#foo = NullHandler(4).xor_byte(0x01010101.to_bytes(4, "big"), 0xAA1001F8.to_bytes(4, "big"))
+
+#print("{0:x}".format(int.from_bytes(foo, "big")))
