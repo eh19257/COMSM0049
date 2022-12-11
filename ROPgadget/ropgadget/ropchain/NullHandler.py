@@ -119,6 +119,7 @@ class NullHandler():
 
 #print(NullHandler().CreateArithmeticMask(b'\xFF\xFF\x00\xFF', "dec"))
 
-#foo = NullHandler(4).xor_byte(0x01010101.to_bytes(4, "big"), 0xAA1001F8.to_bytes(4, "big"))
+foo = NullHandler(4).CreateIterativeMask((4096).to_bytes(4, "big"), "inc")
 
+print(foo)
 #print("{0:x}".format(int.from_bytes(foo, "big")))

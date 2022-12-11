@@ -1,3 +1,4 @@
+(4097, 4294967295)
 Gadgets information
 ============================================================
 0x080adba0 : aaa ; adc bh, bl ; jmp dword ptr [edi + 0x12]
@@ -529,6 +530,7 @@ Gadgets information
 0x080aa922 : adc byte ptr [ebx - 0x7697dbbc], cl ; jo 0x80aa936 ; jmp 0x80aa572
 0x08079d2b : adc byte ptr [ebx - 0x76f7db84], cl ; inc esp ; and al, 0xc ; jmp 0x8079d43
 0x0809c3c2 : adc byte ptr [ebx - 0x7769f3c], al ; pop ebx ; pop esi ; pop edi ; ret
+0x080489c4 : adc byte ptr [ebx - 0x7a72f314], al ; inc esp ; jns 0x80489cb ; call dword ptr [eax - 0x18]
 0x0808a03d : adc byte ptr [ebx - 0x7af00008], al ; pop esi ; jmp 0x9ff2a048
 0x0808a445 : adc byte ptr [ebx - 0x7af00008], al ; retf 0xfffa
 0x080a20d4 : adc byte ptr [ebx - 0x7bf00003], al ; ret 0
@@ -4869,12 +4871,12 @@ Gadgets information
 0x080a223f : add byte ptr [ebp - 0x162e77d], cl ; call dword ptr [eax + 0x68]
 0x080a224b : add byte ptr [ebp - 0x164f67d], cl ; call dword ptr [eax - 0x73]
 0x08049863 : add byte ptr [ebp - 0x165d97d], cl ; call dword ptr [esi - 1]
+0x080489a7 : add byte ptr [ebp - 0x186bb7b], cl ; call dword ptr [eax - 0x18]
 0x080ab7e0 : add byte ptr [ebp - 0x1b], dh ; add esp, 4 ; pop ebx ; pop esi ; ret
 0x08097405 : add byte ptr [ebp - 0x1bb2b7d], cl ; call dword ptr [eax - 0x73]
 0x0809431b : add byte ptr [ebp - 0x1bb3f7d], cl ; call dword ptr [eax - 0x73]
 0x08096f88 : add byte ptr [ebp - 0x1c0527d], cl ; call dword ptr [eax + 0x6a]
 0x0807ecb2 : add byte ptr [ebp - 0x1d7a97d], cl ; call dword ptr [eax - 0x73]
-0x080489a7 : add byte ptr [ebp - 0x272b7b], cl ; call dword ptr [eax - 0x18]
 0x0807b234 : add byte ptr [ebp - 0x2957b7d], cl ; call dword ptr [eax - 0x18]
 0x08078276 : add byte ptr [ebp - 0x29], dh ; jmp 0x8078255
 0x08074d05 : add byte ptr [ebp - 0x2a03f7d], cl ; call dword ptr [eax - 0x73]
@@ -9577,7 +9579,6 @@ Gadgets information
 0x0804ea4b : and esi, ebx ; add byte ptr [eax], al ; add esp, 0x10 ; jmp 0x804e9e5
 0x0806f752 : and esp, 0x52 ; std ; call dword ptr [eax - 0x18]
 0x08076796 : and esp, 0x5d ; std ; call dword ptr [eax - 0x73]
-0x08048129 : and esp, dword ptr [ecx + eax*8 - 0xa] ; pop eax ; jg 0x80480c2 ; retf
 0x0807aa00 : arpl bp, di ; call dword ptr [eax - 0x18]
 0x080a1678 : arpl cx, cx ; cmp al, byte ptr [ecx] ; retf
 0x0806a0b8 : arpl cx, sp ; add cl, byte ptr [edi] ; xchg edx, eax ; ror byte ptr [edi], 0x94 ; ret
@@ -11942,7 +11943,6 @@ Gadgets information
 0x080a5e80 : dec edi ; add al, 1 ; jmp 0x9316a911
 0x08076256 : dec edi ; and dh, dh ; ret
 0x080c0cf3 : dec edi ; and dword ptr [ecx - 0x10], 0x659fb878 ; jmp 0x80c0d3e
-0x08048128 : dec edi ; and esp, dword ptr [ecx + eax*8 - 0xa] ; pop eax ; jg 0x80480c2 ; retf
 0x0805e66a : dec edi ; clc ; dec dword ptr [edi] ; inc ebp ; ret 0xc3f3
 0x080705fd : dec edi ; jmp 0xf48b0602
 0x08089186 : dec edi ; or al, 0 ; add byte ptr [ebx - 0x7bf0ef08], al ; jmp 0x808919a
@@ -12561,7 +12561,6 @@ Gadgets information
 0x080c82f4 : fdivr qword ptr [ecx] ; add byte ptr [eax], al ; or ch, dh ; clc ; call dword ptr [edi]
 0x080c85b8 : fdivr st(1) ; clc ; jmp dword ptr [ebp]
 0x080c0e75 : fdivr st(4) ; test al, 0x97 ; xchg esp, eax ; ret
-0x080489ab : fdivr st(7) ; call dword ptr [eax - 0x18]
 0x0805ba4a : fdivr st(7) ; jmp dword ptr [ebp - 0x7d]
 0x080709e6 : fdivr st(7) ; jmp dword ptr [esi - 0x70]
 0x0806a210 : fdivr st(7) ; pop ebx ; ret
@@ -13089,7 +13088,7 @@ Gadgets information
 0x08088a83 : in al, dx ; or al, 0x8b ; popfd ; insb byte ptr es:[edi], dx ; idiv edi ; call dword ptr [edx - 0x77]
 0x0808825f : in al, dx ; or al, 0x8b ; popfd ; insb byte ptr es:[edi], dx ; idiv edi ; call dword ptr [esi - 0x18]
 0x0804c66d : in al, dx ; or al, 0x8d ; add dword ptr [eax - 1], -1 ; call dword ptr [eax - 0x75]
-0x080489c6 : in al, dx ; or al, 0x8d ; test esp, edx ; fdivr st(7) ; call dword ptr [eax - 0x18]
+0x080489c6 : in al, dx ; or al, 0x8d ; test dword ptr [ecx + edi*2 - 2], eax ; call dword ptr [eax - 0x18]
 0x0804a0ce : in al, dx ; or al, 0x8d ; xor eax, 0x23 ; std ; call dword ptr [eax - 0x18]
 0x08054917 : in al, dx ; or al, 0xc7 ; ret
 0x0806d032 : in al, dx ; or al, 0xff ; call edi
@@ -14368,7 +14367,6 @@ Gadgets information
 0x080c0f18 : inc esi ; cmc ; pop ebx ; in eax, dx ; and al, 0x47 ; into ; jmp 0x54568421
 0x0808edb5 : inc esi ; cmp al, 0x83 ; les eax, ptr [ebx + ebx*2] ; pop esi ; ret
 0x0808edcd : inc esi ; cmp al, 0x83 ; les edx, ptr [eax] ; jmp 0x808ed95
-0x08048127 : inc esi ; dec edi ; and esp, dword ptr [ecx + eax*8 - 0xa] ; pop eax ; jg 0x80480c2 ; retf
 0x080a880a : inc esi ; dec esp ; add byte ptr [eax], al ; add byte ptr [eax], al ; pop esi ; pop edi ; ret
 0x080a87f0 : inc esi ; dec esp ; pop esi ; pop edi ; ret
 0x0806e9ec : inc esi ; inc ebp ; add byte ptr [eax], al ; jmp 0x806e804
@@ -14905,6 +14903,8 @@ Gadgets information
 0x0805a92c : inc esp ; jmp 0x805a85b
 0x0806cb19 : inc esp ; jmp 0x806c5d9
 0x080c2c91 : inc esp ; jmp 0x80c2cb3
+0x080489aa : inc esp ; jns 0x80489ab ; call dword ptr [eax - 0x18]
+0x080489ca : inc esp ; jns 0x80489cb ; call dword ptr [eax - 0x18]
 0x0804d319 : inc esp ; lea edx, [eax] ; mov dword ptr [esp + 0xc], edx ; jmp 0x804d141
 0x080c789c : inc esp ; loop 0x80c7897 ; call dword ptr [edi]
 0x08048b92 : inc esp ; mov bl, 0xfc ; mov dword ptr [ebx + esi*4], eax ; jmp 0x8048b69
@@ -16080,7 +16080,6 @@ Gadgets information
 0x080c33a5 : jecxz 0x80c3384 ; cmp al, 0x93 ; in al, dx ; retf 0xae32
 0x080c48a9 : jecxz 0x80c48a7 ; jmp dword ptr [eax - 0x1c]
 0x080d2c61 : jecxz 0x80d2c63 ; add byte ptr [edi], cl ; cld ; jmp dword ptr [edi]
-0x0804812e : jg 0x80480c2 ; retf
 0x080552e3 : jg 0x805526e ; push cs ; jmp 0x8055261
 0x08057697 : jg 0x80576c2 ; retf 0xd689
 0x08059c64 : jg 0x8059c76 ; jmp 0x805969e
@@ -20666,6 +20665,8 @@ Gadgets information
 0x080cb4d9 : jnp 0x80cb4e5 ; push cs ; adc al, 0x41 ; ret
 0x080cc4f5 : jnp 0x80cc4f7 ; add al, cl ; std ; jmp dword ptr [ebx]
 0x080d06e6 : jnp 0x80d06f2 ; push cs ; adc al, 0x41 ; ret
+0x080489ab : jns 0x80489ab ; call dword ptr [eax - 0x18]
+0x080489cb : jns 0x80489cb ; call dword ptr [eax - 0x18]
 0x08049e75 : jns 0x8049e18 ; cmp dword ptr [ebp - 0x44], edi ; mov esi, edi ; jb 0x8049e43 ; jmp 0x8049de0
 0x0804b942 : jns 0x804b948 ; xor eax, eax ; mov esi, dword ptr [esp + 0x1c] ; jmp 0x804b982
 0x0804cd69 : jns 0x804cd30 ; mov ebp, esi ; jmp 0x804cd39
@@ -20896,6 +20897,7 @@ Gadgets information
 0x080c05c5 : lahf ; ret 0x871e
 0x0806aaf8 : lahf ; ret 0xea81
 0x080ae074 : lahf ; ret 0xfffb
+0x080489a4 : lahf ; xchg byte ptr [ecx], al ; add byte ptr [ebp - 0x186bb7b], cl ; call dword ptr [eax - 0x18]
 0x080a5589 : lahf ; xor eax, eax ; jmp 0x80a55a8
 0x0806be22 : lcall 0, 0xb8000024 ; add dword ptr [eax], eax ; jmp 0x806bb7c
 0x08090862 : lcall 0x10c4, 0x83fffb79 ; jmp 0x80907ea
@@ -27346,7 +27348,6 @@ Gadgets information
 0x0805cfb5 : mul byte ptr [ebp - 0x39] ; add byte ptr [eax + eax], cl ; add byte ptr [eax], al ; jmp 0x805cebf
 0x0809f450 : mul esi ; jmp 0x809f45f
 0x0807b936 : neg bh ; cld ; dec dword ptr [ebp - 0x2959b7d] ; call dword ptr [eax - 0x73]
-0x0804812c : neg byte ptr [eax + 0x7f] ; xchg edx, eax ; retf
 0x080ae5f8 : neg byte ptr [ecx + edi*8] ; call dword ptr [eax + 0x15fff91c]
 0x08090bf7 : neg dword ptr [ebx + 0x5e] ; jmp 0x8090dd0
 0x0806db78 : neg dword ptr [ebx + 0x5e] ; pop edi ; ret
@@ -27784,7 +27785,7 @@ Gadgets information
 0x080a883a : or al, 0x8d ; insb byte ptr es:[edi], dx ; and al, 0x10 ; mov edi, eax ; jmp 0x80a8881
 0x08071d09 : or al, 0x8d ; mov bl, 0x9c ; pop ds ; add byte ptr [eax], al ; jmp 0x8071d3c
 0x0809eff1 : or al, 0x8d ; stosd dword ptr es:[edi], eax ; jle 0x809f019 ; std ; call dword ptr [edx + 0x68]
-0x080489c7 : or al, 0x8d ; test esp, edx ; fdivr st(7) ; call dword ptr [eax - 0x18]
+0x080489c7 : or al, 0x8d ; test dword ptr [ecx + edi*2 - 2], eax ; call dword ptr [eax - 0x18]
 0x0804a0cf : or al, 0x8d ; xor eax, 0x23 ; std ; call dword ptr [eax - 0x18]
 0x0805e29e : or al, 0x90 ; add ebp, dword ptr [esp + 0x18] ; add ebp, eax ; jmp 0x805e170
 0x080a42d5 : or al, 0x97 ; mov dword ptr [esp + 0xc], ecx ; jmp 0x80a42ed
@@ -29100,7 +29101,6 @@ Gadgets information
 0x0807e4d3 : pop eax ; idiv edi ; call dword ptr [ecx + 0x57]
 0x0807e4e6 : pop eax ; idiv edi ; push dword ptr [ebp - 0x54] ; jmp 0x807e233
 0x080c95c8 : pop eax ; inc eax ; stc ; jmp edi
-0x0804812d : pop eax ; jg 0x80480c2 ; retf
 0x08075e22 : pop eax ; jmp 0x8075cb2
 0x0808707a : pop eax ; jmp 0x8086433
 0x0809ea12 : pop eax ; jmp dword ptr [eax]
@@ -32452,6 +32452,7 @@ Gadgets information
 0x0805431a : ret 0x5ce7
 0x08048a29 : ret 0x5d89
 0x0805ca7a : ret 0x5de9
+0x08048124 : ret 0x5df7
 0x080750b5 : ret 0x5e9
 0x0807a39d : ret 0x5f3c
 0x08055dd5 : ret 0x6074
@@ -32863,7 +32864,7 @@ Gadgets information
 0x08060021 : ret 7
 0x080625a0 : ret 8
 0x080bc2a4 : ret 9
-0x08048130 : retf
+0x08048281 : retf
 0x0804bfb7 : retf 0
 0x080b8360 : retf 0x11
 0x0806dca4 : retf 0x1174
@@ -33653,7 +33654,6 @@ Gadgets information
 0x0809adcf : sal ebx, 0xff ; call dword ptr [eax + 0x26748d]
 0x0806a63a : sal ebx, 1 ; stosb byte ptr es:[edi], al ; mov eax, dword ptr [esp + 8] ; pop edi ; ret
 0x080485fb : sal esi, 0x44 ; and al, 0x20 ; add dh, byte ptr [ebp + esi*8 - 0x7d] ; jmp 0x8048607
-0x0804812b : sal esi, 0x58 ; jg 0x80480c2 ; retf
 0x080537db : salc ; adc al, 0x24 ; jmp 0x805317d
 0x08069bbe : salc ; add al, byte ptr [eax] ; add byte ptr [esi + 0xf], ah ; out dx, eax ; retf 0xf66
 0x08050aa3 : salc ; add dword ptr [eax], eax ; jmp 0x80506a0
@@ -35737,6 +35737,7 @@ Gadgets information
 0x080627e0 : test dword ptr [ecx + 0x5b000006], eax ; ret
 0x080620ff : test dword ptr [ecx + eax + 0x488b0000], edi ; jmp 0x8062093
 0x08097935 : test dword ptr [ecx + eax + 0x74030000], edx ; retf
+0x080489a9 : test dword ptr [ecx + edi*2 - 2], eax ; call dword ptr [eax - 0x18]
 0x0805f6bd : test dword ptr [ecx + edx], ebx ; add byte ptr [eax], al ; add ecx, 0x10 ; jmp 0x805f6a0
 0x080a2baa : test dword ptr [ecx - 0x77000000], ebp ; jmp 0x8d19f539
 0x08091f8a : test dword ptr [ecx - 0xa000000], esi ; ret 0xf04
@@ -35994,7 +35995,6 @@ Gadgets information
 0x080abb29 : test esi, esi ; jne 0x80abb32 ; jmp 0x80abb65
 0x08091e77 : test esp, eax ; add eax, dword ptr [eax] ; add dh, dh ; ret 0xf04
 0x08066c8f : test esp, edi ; add dword ptr [eax], eax ; add dh, dh ; ret 0xf40
-0x080489a9 : test esp, edx ; fdivr st(7) ; call dword ptr [eax - 0x18]
 0x0805b451 : test esp, edx ; sub eax, 0x15e8fffd ; retf
 0x0807d366 : ud0 ; jmp dword ptr [esi - 0x70]
 0x08069b75 : wait ; adc byte ptr [eax - 3], al ; jmp dword ptr [esi + 0xf]
@@ -36044,6 +36044,7 @@ Gadgets information
 0x080a35c2 : xchg byte ptr [ecx + eax], bl ; add byte ptr [ecx], al ; retf 0x9689
 0x0809fef2 : xchg byte ptr [ecx - 0x3f7c7eec], cl ; add dword ptr [ecx], edi ; ret
 0x080a0382 : xchg byte ptr [ecx - 0x7cff7aac], cl ; rol byte ptr [ecx], 0x39 ; ret
+0x080489a5 : xchg byte ptr [ecx], al ; add byte ptr [ebp - 0x186bb7b], cl ; call dword ptr [eax - 0x18]
 0x0809568e : xchg byte ptr [edi - 0x7c000004], bh ; in al, dx ; or byte ptr [ecx], ch ; ret 0x76ff
 0x080c1a35 : xchg byte ptr [edi - 0x7c], dl ; xchg dword ptr [eax], edi ; in eax, 0xe5 ; retf 0x2a91
 0x0809b65a : xchg byte ptr [edx + eax], ah ; add byte ptr [eax], al ; mov dword ptr [ebp - 0x5c], eax ; jmp 0x809aed3
@@ -36213,7 +36214,6 @@ Gadgets information
 0x080ade78 : xchg edx, eax ; push ss ; sti ; call edx
 0x080ae07c : xchg edx, eax ; ret
 0x080c0833 : xchg edx, eax ; ret 0xf869
-0x0804812f : xchg edx, eax ; retf
 0x0806a0bc : xchg edx, eax ; ror byte ptr [edi], 0x94 ; ret
 0x08049acc : xchg edx, eax ; ror dword ptr [edi], 0xb6 ; leave ; jmp 0x80499ef
 0x08090238 : xchg edx, eax ; sal byte ptr [edx - 5], 1 ; dec dword ptr [edi] ; inc ebp ; ret 0xc3f3
@@ -36992,7 +36992,7 @@ Gadgets information
 0x080575c5 : xor esi, esi ; xor edi, edi ; jmp 0x8057540
 0x0805b524 : xor esp, 0xffffffff ; call dword ptr [eax + 0x26b48d]
 
-Unique gadgets found: 36991
+Unique gadgets found: 36990
 
 ROP chain generation
 ===========================================================
@@ -37064,9 +37064,10 @@ ROP chain generation
 - Step 3 -- Init syscall arguments gadgets
 
 	[+] Gadget found: 0x80481c9 pop ebx ; ret
-{'maskchain': [{'vaddr': 134513097, 'gadget': 'pop ebx ; ret'}, {'vaddr': 134513097, 'gadget': 'pop ebx ; ret'}, {'vaddr': 135070102, 'gadget': 'dec ebx ; ret'}], 'masksrcanddst': ['ebx', 'ebx'], 'method': 'dec', 'doublegadget': None, 'weightofchain': 4, 'pushdst': {'vaddr': 134795658, 'gadget': 'push ebx ; ret'}}
+{'maskchain': [{'vaddr': 134513097, 'gadget': 'pop ebx ; ret'}, {'vaddr': 134513097, 'gadget': 'pop ebx ; ret'}, {'vaddr': 135024221, 'gadget': 'inc ebx ; ret'}], 'masksrcanddst': ['ebx', 'ebx'], 'method': 'inc', 'doublegadget': None, 'weightofchain': 3, 'pushdst': {'vaddr': 134795658, 'gadget': 'push ebx ; ret'}}
 	[+] Gadget found: 0x806e162 pop ecx ; pop ebx ; ret
 	[+] Gadget found: 0x806e13b pop edx ; ret
+testing masks
 
 - Step 4 -- Syscall gadget
 
@@ -37074,4 +37075,20 @@ ROP chain generation
 
 - Step 5 -- Build the ROP chain
 
-[b'////bin/echo', b'Sex\x07', b'Up\x07\x07', b'My\x07\x07', b'Dad\x07']
+Mask: 4097 Masked_value: 4294967295
+Does this get add3ed
+Mask: 1 Masked_value: 135114751
+Does this get add3ed
+Mask: 1 Masked_value: 135114753
+Mask: 8 Masked_value: 4294967295
+Does this get add3ed
+Mask: 8 Masked_value: 4294967295
+Does this get add3ed
+Mask: 8 Masked_value: 4294967295
+Mask: 16843002 Masked_value: 16843009
+Mask: 16843002 Masked_value: 16843009
+Mask: 16843002 Masked_value: 16843009
+Syscall addr: 134518259
+MASK CHAIN FOR ECX: [{'maskchain': [{'vaddr': 134668642, 'gadget': 'pop ecx ; pop ebx ; ret'}, {'vaddr': 134668642, 'gadget': 'pop ecx ; pop ebx ; ret'}, {'vaddr': 135023001, 'gadget': 'inc ecx ; ret'}], 'masksrcanddst': ['ecx', 'ecx'], 'method': 'inc', 'doublegadget': None, 'weightofchain': 3, 'pushdst': {'vaddr': 135074462, 'gadget': 'push ecx ; ret'}}]
+Does p contain a NULL? False size of ROpchain in bytes: 17176
+Start of .data:  80DB000. Start of .bss:  80DB320. Start of shellcode on the stack:  80DA060

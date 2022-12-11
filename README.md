@@ -63,7 +63,21 @@ We can pipe this value into the modified ROPGadget.py by using the `-p` flag:
 python3 ROPgadget/auto-padder.py vulnz/vuln3-32 -p
 ```
 
-We can use the flags `--file`, `--arg` and `--stdin` to specify what input type the vulnerale file uses.
+We can use the flags `--file`, `--arg` and `--stdin` to specify what input type the vulnerale file uses. For example:
+
+```
+gcc -fno-stack-protector -m32 -static vulnz/vuln1.c -o vulnz/vuln1-32
+gcc -fno-stack-protector -m32 -static vulnz/vuln2.c -o vulnz/vuln2-32
+
+python3 ROPgadget/auto-padder.py vulnz/vuln1-32 --arg
+python3 ROPgadget/auto-padder.py vulnz/vuln2-32 --stdin
+```
+
+################### TASK 1 DONE #######################
+################## TASK 2 ##############
+
+
+Running
 
 
 
