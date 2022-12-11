@@ -139,31 +139,23 @@ class ROPMakerX86(object):
         possiblepushs = self.possiblepushs
         possiblezeros = self.zeros
 
-
         chainmasklist = []
         #bestmc= None its MF doom he the besGenerateMaskRopChaint mc
+
 
         for regsrc2 in ["eax","ebx","ecx","edx","esi","edi"]:
             double = possibledoubles[regdst] 
 
             if ((regdst,regsrc2) in possiblemasks and regsrc2 in possiblepops and regdst in possiblepops):
-                mask,method,weight = possiblemasks[(regdst,regsrc2)]
-                mcoutputdict = {"maskchain":[possiblepops[regsrc2], possiblepops[regdst], mask],
-                                "masksrcanddst":[regsrc2,regdst],
-                                "method":method,
-                                "doublegadget":double,
-                                "weightofchain":weight,
-                                "pushdst" : possiblepushs[regdst]}
+                for tuple in possiblemasks[(regdst,regsrc2)]:
+                    mask,method,weight = tuple
 
-                chainmasklist.append(mcoutputdict)
-
-                if((method == "inc" or method == "dec") and regsrc2 in possiblezeros):
-                    mcoutputdict = {"maskchain":[possiblezeros[regsrc2], possiblepops[regdst], mask],
-                                "masksrcanddst":[regsrc2,regdst],
-                                "method":method,
-                                "doublegadget":double,
-                                "weightofchain":weight,
-                                "pushdst" : possiblepushs[regdst]}
+                    mcoutputdict = {"maskchain":[possiblepops[regsrc2], possiblepops[regdst], mask],
+                                    "masksrcanddst":[regsrc2,regdst],
+                                    "method":method,
+                                    "doublegadget":double,
+                                    "weightofchain":weight,
+                                    "pushdst" : possiblepushs[regdst]}
 
                     chainmasklist.append(mcoutputdict)
 
@@ -173,24 +165,16 @@ class ROPMakerX86(object):
                     double = possibledoubles[regdst2] 
                     if(regsrc != regsrc2 and regsrc != regdst2):
                         if((regdst,regdst2) in possiblemovs):
-                            mask,method,weight = possiblemasks[(regdst2,regsrc2)]
-                            mov = possiblemovs[(regdst,regdst2)]
-                            mcoutputdict = {"maskchain":[possiblepops[regsrc2], possiblepops[regdst2], mask, mov],
-                                            "masksrcanddst":[regsrc2,regdst2],
-                                            "method":method,
-                                            "doublegadget":double,
-                                            "weightofchain":weight,
-                                            "pushdst": possiblepushs[regdst2]}
+                            for tuple in possiblemasks[(regdst2,regsrc2)]:
 
-                            chainmasklist.append(mcoutputdict)
-
-                            if((method == "inc" or method == "dec") and regsrc2 in possiblezeros):
-                                mcoutputdict = {"maskchain":[possiblezeros[regsrc2], possiblepops[regdst2], mask,mov],
-                                            "masksrcanddst":[regsrc2,regdst2],
-                                            "method":method,
-                                            "doublegadget":double,
-                                            "weightofchain":weight,
-                                            "pushdst" : possiblepushs[regdst2]}
+                                mask,method,weight = tuple
+                                mov = possiblemovs[(regdst,regdst2)]
+                                mcoutputdict = {"maskchain":[possiblepops[regsrc2], possiblepops[regdst2], mask, mov],
+                                                "masksrcanddst":[regsrc2,regdst2],
+                                                "method":method,
+                                                "doublegadget":double,
+                                                "weightofchain":weight,
+                                                "pushdst": possiblepushs[regdst2]}
 
                                 chainmasklist.append(mcoutputdict)
 
@@ -225,7 +209,10 @@ class ROPMakerX86(object):
                         if(regex.group("dst") == regex.group("src")):
                             raise
 
-                        outputdict[(regex.group("dst"), regex.group("src"))] = (gadget,mask,weight)
+                        if((regex.group("dst"), regex.group("src")) in outputdict):
+                            outputdict[(regex.group("dst"), regex.group("src"))].append((gadget,mask,weight))
+                        else:
+                            outputdict[(regex.group("dst"), regex.group("src"))] = [(gadget,mask,weight)]
                     except:
                         continue
 
@@ -235,7 +222,10 @@ class ROPMakerX86(object):
             for reg in ["eax","ebx","ecx","edx","esi","edi"]:
                 tmp = self.__lookingForSomeThing(mask + " %s" % reg)
                 if tmp:
-                    outputdict[(reg,reg)] = (tmp,mask,weight)
+                    if (reg, reg) in outputdict:
+                        outputdict[(reg, reg)].append((tmp,mask,weight))
+                    else:
+                        outputdict[(reg, reg)] = [(tmp,mask,weight)]
 
             weight = weight + 1
 
@@ -991,6 +981,7 @@ class ROPMakerX86(object):
             return
 
         popEdx = self.__lookingForSomeThing("pop edx")
+        print("testing masks")
         MaskEdx =  self.GettingMaskChains("edx","edx")
         #used for shellcoded
         if not MaskEdx:
@@ -1011,7 +1002,7 @@ class ROPMakerX86(object):
         print("\n- Step 5 -- Build the ROP chain\n")
 
         #self.__buildRopChain(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall)
-        self.customRopChain(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall)
+        #self.customRopChain(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall)
         #self.arbitrary_shell_code(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx, MaskEbx, popEcx, MaskEcx, popEdx, MaskEdx, syscall, listchainmask)
         #self.testingmasking(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx,MaskEbx, popEcx,MaskEcx, popEdx, MaskEdx, syscall, listchainmask)
 
