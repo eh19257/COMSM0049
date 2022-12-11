@@ -33,6 +33,7 @@ class ROPMakerX86(object):
         self.possiblemasks = {}
         self.possiblepops = {}
         self.possiblemovs = {}
+        self.zeros = {}
 
         self.__generate()
 
@@ -58,6 +59,18 @@ class ROPMakerX86(object):
                 outputdict[reg] = tmp
 
         return outputdict
+
+    def __zeros(self):
+
+        outputdict = defaultdict(lambda : None)
+
+        for reg in ["eax","ebx","ecx","edx","esi","edi"]:
+            tmp = self.__lookingForSomeThing("zero %s" % reg)
+            if tmp:
+                outputdict[reg] = tmp
+
+        return outputdict
+    
 
     def __lookingPossiableDoubles(self):
 
@@ -124,6 +137,7 @@ class ROPMakerX86(object):
         possiblepops = self.possiblepops
         possiblemovs = self.possiblemovs
         possiblepushs = self.possiblepushs
+        possiblezeros = self.zeros
 
 
         chainmasklist = []
@@ -131,6 +145,7 @@ class ROPMakerX86(object):
 
         for regsrc2 in ["eax","ebx","ecx","edx","esi","edi"]:
             double = possibledoubles[regdst] 
+
             if ((regdst,regsrc2) in possiblemasks and regsrc2 in possiblepops and regdst in possiblepops):
                 mask,method,weight = possiblemasks[(regdst,regsrc2)]
                 mcoutputdict = {"maskchain":[possiblepops[regsrc2], possiblepops[regdst], mask],
@@ -141,6 +156,16 @@ class ROPMakerX86(object):
                                 "pushdst" : possiblepushs[regdst]}
 
                 chainmasklist.append(mcoutputdict)
+
+                if((method == "inc" or method == "dec") and regsrc2 in possiblezeros):
+                    mcoutputdict = {"maskchain":[possiblezeros[regsrc2], possiblepops[regdst], mask],
+                                "masksrcanddst":[regsrc2,regdst],
+                                "method":method,
+                                "doublegadget":double,
+                                "weightofchain":weight,
+                                "pushdst" : possiblepushs[regdst]}
+
+                    chainmasklist.append(mcoutputdict)
 
             for regdst2 in ["eax","ebx","ecx","edx","esi","edi"]:
                 if ((regdst2,regsrc2) in possiblemasks and regsrc2 in possiblepops and regsrc2 in possiblepops):
@@ -158,6 +183,16 @@ class ROPMakerX86(object):
                                             "pushdst": possiblepushs[regdst2]}
 
                             chainmasklist.append(mcoutputdict)
+
+                            if((method == "inc" or method == "dec") and regsrc2 in possiblezeros):
+                                mcoutputdict = {"maskchain":[possiblezeros[regsrc2], possiblepops[regdst2], mask,mov],
+                                            "masksrcanddst":[regsrc2,regdst2],
+                                            "method":method,
+                                            "doublegadget":double,
+                                            "weightofchain":weight,
+                                            "pushdst" : possiblepushs[regdst2]}
+
+                                chainmasklist.append(mcoutputdict)
 
         chainmasklist = sorted(chainmasklist, key=lambda x: x['weightofchain'])
 
@@ -792,6 +827,7 @@ class ROPMakerX86(object):
         self.possiblemovs= self.__lookingPossiableMoves()
         self.possiblepops = self.__pops()
         self.possiblepushs = self.__pushs()
+        self.zeros = self.__zeros()
 
         storedgadgets = [] 
         storedgadgetsAlreadyTested= [] 
