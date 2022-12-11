@@ -158,11 +158,11 @@ def handle_args():
                 ||----w |
                 ||     ||
     
-    Welcome to auto-wadder.py! This program automatically finds the length of padding that is require to exploit some buffer overflow expolit.
+    Welcome to auto-padder.py! This program automatically finds the length of padding that is require to exploit some buffer overflow expolit.
     '''
 
     # create parser
-    parser = argparse.ArgumentParser(prog="Auto-wadder.py", description=desc, epilog="Enjoy!",  formatter_class=argparse.RawTextHelpFormatter)
+    parser = argparse.ArgumentParser(prog="Auto-padder.py", description=desc, epilog="Enjoy!",  formatter_class=argparse.RawTextHelpFormatter)
 
 
     parser.add_argument("filePath", help="The path to the vulnerable file", type=str)#, formatter_class=argparse.RawTextHelpFormatter)
