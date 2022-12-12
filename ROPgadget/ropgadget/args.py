@@ -99,6 +99,15 @@ architectures supported:
         parser.add_argument("--align",              type=int,                         help="Align gadgets addresses (in bytes)")
         parser.add_argument("--mipsrop",            type=str, metavar="<rtype>",      help="MIPS useful gadgets finder stackfinder|system|tails|lia0|registers")
 
+        ##### ADDED args
+        parser.add_argument("-p", "--padding",      type=int,                         default=44, help="Specifies the amount of padding if auto-padder.py isn't used")
+
+        #group = parser.add_mutually_exclusive_group()
+        
+        parser.add_argument("--shellcode",           action="store_true",              help="Enables shellcode for the ropchain instead of an execve")
+        #group.add_argument("--execve")
+        
+
         self.__args = parser.parse_args(arguments)
 
         if self.__args.noinstr and self.__args.only:

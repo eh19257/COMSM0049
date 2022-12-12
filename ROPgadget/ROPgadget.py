@@ -8,7 +8,12 @@
 ##
 
 import ropgadget
+import os
 
-execve = "/bin/echo Sex Up My Dad"           ### MODIFIED
 
-ropgadget.main(execve, [], 44)
+execve = os.environ.get("ROPCMD")
+if (execve is None):
+    execve = "/bin/echo The exploit is working."
+        
+
+ropgadget.main(execve, [])

