@@ -104,7 +104,7 @@ architectures supported:
 
         #group = parser.add_mutually_exclusive_group()
         
-        parser.add_argument("--shellcode",           action="store_true",              help="Enables shellcode for the ropchain instead of an execve")
+        parser.add_argument("--shellcode",           type=str,                        default=None, help="Enables shellcode for the ropchain instead of an execve")
         #group.add_argument("--execve")
         
 

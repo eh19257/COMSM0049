@@ -68,6 +68,23 @@ class NullHandler():
         return int.from_bytes(mask, "big"), int.from_bytes(masked_addr, "big")
 
 
+    # Creates a chainmask for the double and inc (un)masking
+    def CreateDoubleWithIncMaskOperationChain(self, value):
+        value_bin = "{0:b}".format(value)[::-1]
+
+        op_chain = []
+        while (value_bin != '0'):
+            #print(value_bin)
+            if (value_bin[0] == '1'):
+                op_chain.append("inc")
+                value_bin = '0' + value_bin[1::]
+            else:
+                op_chain.append("double")
+                value_bin = value_bin[1::]
+        
+        return op_chain[::-1]
+
+
     # Applys some masking operation for the iterative mask
     def Apply_Mask(self, mask, value, mask_type):
         if   (mask_type == "xor"):

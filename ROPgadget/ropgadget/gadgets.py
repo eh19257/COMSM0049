@@ -31,7 +31,8 @@ class Gadgets(object):
         self.__filterRE = re.compile("({})$".format(re_str)) if re_str else None
 
     def __passCleanX86(self, decodes):
-        br = ["ret", "retf", "int", "sysenter", "jmp", "call", "syscall"]
+        #br = ["ret", "retf", "int", "sysenter", "jmp", "call", "syscall"]
+        br = ["ret", "retf", "sysenter", "jmp", "call", "syscall"]
 
         if decodes[-1][2] not in br:
             return True
