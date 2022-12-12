@@ -13,7 +13,6 @@ from ropgadget.ropchain.NullHandler import NullHandler as nh
 from ropgadget.ropchain.MaskBuilder import MaskBuilder as mb
 from collections import defaultdict
 
-
 class ROPMakerX86(object):
     def __init__(self, binary, gadgets, padding, execve, liboffset=0x0):
         self.__binary  = binary
@@ -79,6 +78,7 @@ class ROPMakerX86(object):
 
             f = gadget["gadget"].split(" ; ")[0]
             regex = re.search("add (?P<dst>([(eax)|(ebx)|(ecx)|(edx)|(esi)|(edi)]{3})), (?P<src>([(eax)|(ebx)|(ecx)|(edx)|(esi)|(edi)]{3}))$", f)
+
             if regex:
                 lg = gadget["gadget"].split(" ; ")[1:]
 
@@ -87,6 +87,7 @@ class ROPMakerX86(object):
                         raise
 
                     for g in lg:
+
                         if g.split()[0] != "pop" and g.split()[0] != "ret":
                             raise
                         # we need this to filterout 'ret' instructions with an offset like 'ret 0x6', because they ruin the stack pointer
@@ -94,8 +95,6 @@ class ROPMakerX86(object):
                             if g.split()[0] == "ret" and g.split()[1] != "":
                                 raise
                     
-                        raise
-
                     outputdict[regex.group("src")] = [gadget,regex.group("src")]
                 except:
                     continue
@@ -618,13 +617,14 @@ class ROPMakerX86(object):
         #p += pack("<I", bss)
 
         # jump to the shellcode
-        p += self.GenerateMaskRopChain(dataAddr, chainmask, {}, gadget_address=True)
+        p += pack('<I', dataAddr) 
         #p += pack("<I", loc_shellCode)
         #print(p)
         print("Syscall addr: {0}".format(syscall["vaddr"]))
         print("MASK CHAIN FOR ECX:", maskEcx)
         print("Does p contain a NULL?", nh(self.__WORD_SIZE).contains_null(p), "size of ROpchain in bytes:", len(p))
         print("Start of .data: {0:8X}. Start of .bss: {2:8X}. Start of shellcode on the stack: {1:8X}".format(start_of_page, dataAddr, bss))
+        print(dataAddr)
 
 
         file = open("shellcode_ROP", "wb")
@@ -831,6 +831,8 @@ class ROPMakerX86(object):
         self.possiblepushs = self.__pushs()
         self.zeros = self.__zeros()
 
+        print(self.possibledoubles)
+
         storedgadgets = [] 
         storedgadgetsAlreadyTested= [] 
 
@@ -983,6 +985,7 @@ class ROPMakerX86(object):
 
         popEcx = self.__lookingForSomeThing("pop ecx")
         MaskEcx =  self.GettingMaskChains("ecx","ecx")
+        print(MaskEcx)
         #used for shellcoded
         if not MaskEcx:
             print("\t[-] Can't find the 'ebx mask' instruction")
