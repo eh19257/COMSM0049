@@ -21,7 +21,7 @@ Vagrant.configure("2") do |config|
 end
 ```
 
-Save the Vagrantfile into your working directory and run the following in bash to start and connect to your VM - this might take a while depending on your internet connection.
+Save the `Vagrantfile` into your working directory and run the following in bash to start up and connect to your VM - this might take a while depending on your internet connection.
 
 ```
 vagrant up
@@ -51,6 +51,7 @@ All of the test programs that we will be using are found in the directory `vulnz
 gcc -fno-stack-protector -m32 -static vulnz/vuln1.c -o vulnz/vuln1-32
 gcc -fno-stack-protector -m32 -static vulnz/vuln2.c -o vulnz/vuln2-32
 gcc -fno-stack-protector -m32 -static vulnz/vuln3.c -o vulnz/vuln3-32
+gcc -fno-stack-protector -m32 -static vulnz/vuln4.c -o vulnz/vuln4-32
 ```
 
 ## Running the code
@@ -67,7 +68,7 @@ We can choose to pipe the value of padding into our modified ROPGadget.py by usi
 python3 ROPgadget/auto-padder.py vulnz/vuln3-32 -p
 ```
 
-We can use the flags `--file`, `--arg` and `--stdin` to specify what input type the vulnerale file uses. For example:
+We can use the flags `--file`, `--arg` and `--stdin` to specify what input type the vulnerale file uses or use the shortened versions respectively `-f`, `-a` or `-i`. For example:
 
 ```
 python3 ROPgadget/auto-padder.py vulnz/vuln1-32 --arg
@@ -80,9 +81,8 @@ If we already know the amount of padding that is required to overwrite the retur
 python3 ROPgadget/ROPgadget.py --ropchain --binary vulnz/vuln3-32 --padding=44
 ```
 
-################### TASK 1 DONE #######################
-################## TASK 2 ##############
 
+## Arbitrary execve()
 
 To generate a ropchain with an arbitrary execve we can set the environment variable `ROPCMD` to run our choosen program. For example:
 
@@ -93,16 +93,40 @@ export ROPCMD="/bin/sh"
 We can then run our either `auto-padder.py` to generate the ropchain or we can run `ROPgadget.py` directly as such:
 
 ```
-python3 ROPgadget/auto-padder.py vulnz/vuln3-32 -p
+python3 ROPgadget/auto-padder.py vulnz/vuln3-32 -f -p
 python3 ROPgadget/ROPgadget.py --ropchain --binary vulnz/vuln3-32 -p=44
 ```
 
+If we need to, we can can easily remove the environment variable by unsetting it:
 
-###################### TASK 4
+```
+unset ROPCMD
+```
 
-Running arbitrary shellcode can be done as the following:
+## Arbitrary Shellcode
 
+Our modified `ROPgadget.py` allows us to run arbitrary shellcode. Below we have some example shellcode that we can copy and paste into a file called `shellcode_human_readable`, the file is a hexdump and so any other arbitrary shellcode should in this format.
 
+```
+```
 
+We need to convert the hexdump into binary which can be done as the following command:
 
-To generate ROPchain `python3 ROPgadget/ROPgadget.py --binary vuln3-32 --ropchain `
+```
+xxd -p -r shellcode_human_readable > shellcode_bin
+```
+
+Our shellcode has now been converted from its hex encoding into its binary encoding and is found in the output file `shellcode_bin` which we can now use as our input to our programs. We can then create a ROP chain from either `auto-padder.py` or directly from `ROPGadget.py` as follows:
+
+```
+python3 ROPgadget/auto-padder.py vulnz/vuln3-32 -f -p --shellcode shellcode_bin
+python3 ROPgadget/ROPgadget.py --ropchain --binary vulnz/vuln3-32 -p=44 --shellcode shellcode_bin
+```
+
+## Help
+As per standard, each program has a "help" display which provides the user with more information. This can be accessed with the `-h`/`--help` flag:
+
+```
+python3 ROPgadget/ROPgadget.py --help
+python3 ROPgadget/auto-padder.py --help
+```
