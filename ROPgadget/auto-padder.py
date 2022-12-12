@@ -193,6 +193,6 @@ def main():
         if (cmd is None):
             cmd = "/bin/echo The exploit is working."
         
-        ropgadget.main(cmd, ["--ropchain", "--binary", args.filePath], padding)
+        ropgadget.main(cmd, ["--ropchain", "--binary", args.filePath, "--padding=" + str(padding)])
 
 main()

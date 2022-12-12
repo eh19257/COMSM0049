@@ -13,12 +13,13 @@ from ropgadget.ropchain.arch.ropmakerx86 import *
 
 
 class ROPMaker(object):
-    def __init__(self, binary, gadgets, padding, offset, execve):
+    def __init__(self, binary, gadgets, padding, offset, execve, is_shellcode):
         self.__binary  = binary
         self.__gadgets = gadgets
         self.__offset  = offset
         self.__execve = self.__preProcessArgs(execve)       ### ADDED
         self.__padding = padding                            ### ADDED
+        self.__is_shellcode = is_shellcode                  ### ADDED
 
         self.__handlerArch()
 
@@ -30,7 +31,7 @@ class ROPMaker(object):
             and self.__binary.getArchMode() == CS_MODE_32
             and self.__binary.getFormat() == "ELF"
         ):
-            ROPMakerX86(self.__binary, self.__gadgets, self.__padding, self.__execve, self.__offset)
+            ROPMakerX86(self.__binary, self.__gadgets, self.__padding, self.__execve, self.__is_shellcode, self.__offset)
 
         elif (
             self.__binary.getArch() == CS_ARCH_X86
