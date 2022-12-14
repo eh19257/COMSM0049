@@ -86,7 +86,7 @@ python3 ROPgadget/auto-padder.py vulnz/vuln2-32 --stdin
 If we already know the amount of padding that is required to overwrite the return address of the current function, then we can directly run our modifed version of `ROPgadget.py` with the amount of padding paramertised. We do this with the `-p` or `--padding` flags.
 
 ```
-python3 ROPgadget/ROPgadget.py --ropchain --binary vulnz/vuln3-32 --padding=44
+python3 ROPgadget/ROPgadget.py --ropchain --binary vulnz/vuln4-32 --padding=44
 ```
 
 By default, the execve that we run is `execve("/bin/echo", ["/bin/echo", "The", "exploit", "is", "working"], NULL)`. We can now run the generated ROP chain on `vulnz/vuln4-32` and see the `execve` run by using:
