@@ -638,10 +638,11 @@ class ROPMakerX86(object):
 
     def testingmasking(self, write4where, popDst, popSrc, xorSrc, xorEax, incEax, popEbx, maskEbx, popEcx, maskEcx, popEdx, MaskEdx, syscall, chainmask):
      
-        p = b'\x41' * self.padding
+        p = b''#\x41' * self.padding
         p += self.GenerateMaskRopChain(4096, maskEcx, popEcx, {})
 
         print("ROPCHAIN is:", p)
+        print("p is of length:", len(p))
         file = open("test_ROP", "wb")
         file.write(p)
         file.close()
@@ -1003,4 +1004,3 @@ class ROPMakerX86(object):
             self.arbitrary_shell_code(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx, MaskEbx, popEcx, MaskEcx, popEdx, MaskEdx, syscall, listchainmask)
         else:
             self.customRopChain(write4where[0], popDst, popSrc, xorSrc, xorEax, incEax, popEbx, popEcx, popEdx, syscall, listchainmask)
-        

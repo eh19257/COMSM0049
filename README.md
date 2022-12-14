@@ -19,6 +19,7 @@ Vagrant.configure("2") do |config|
     end
  end
 end
+
 ```
 
 Save the `Vagrantfile` into your working directory and run the following in bash to start up and connect to your VM - this might take a while depending on your internet connection.
