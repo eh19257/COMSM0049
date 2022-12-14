@@ -2,7 +2,7 @@
 
 This repo contains code for generating return oriented programming (ROP) exploit chains. The program `auto-padder.py` first works out the amount of padding that is needed to overwrite the return address of the current function. The program `ROPGadget.py`, which is a modified version of the original found [here](https://github.com/JonathanSalwan/ROPgadget), can create ROP chains for arbitrary `execve()` syscalls and can handle .data addresses and values that contain NULL bytes - the program can (nearly) execute arbitrary shellcode. 
 
-## Settin up the environment
+## Setting up the environment
 
 We will be running this proof of concept in a Vagrant virtual machine by using the `Vagrantfile` below. We assume that you have vagrant installed on your machine. 
     
@@ -22,7 +22,7 @@ end
 
 ```
 
-Save the `Vagrantfile` into your working directory and run the following in bash to start up and connect to your VM - this might take a while depending on your internet connection.
+Save the above as a file named `Vagrantfile` into your working directory and run the following in bash to start up and connect to your VM - this might take a while depending on your internet connection.
 
 ```
 vagrant up
@@ -33,22 +33,21 @@ We can now install some dependencies on the VM by running the following:
 
 ```
 sudo apt update
-sudo apt install -y python3-pip gcc-multilib
+sudo apt install -y python3-pip gcc-multilib unzip
 pip3 install capstone
 ```
 
-traverse into the directory `/vagrant` with:
+Traverse into the directory `/vagrant` with:
 ```
 cd /vagrant
 ``` 
 
-Unzip/extract the provided `.zip` into your current working directory. If you are cloning the code from a repo, then remember to traverse into the local repository using `cd COMSM0049`.
+Unzip/extract the provided `code.zip` into your current working directory. If you are cloning the code from a repo, then remember to traverse into the local repository using `cd COMSM0049`.
 
 We can extract the zip with the following:
 
 ```
 unzip <filename.zip>
-CONTAINS /ROPgadget/ vulnz/
 
 ```
 
@@ -63,7 +62,7 @@ gcc -fno-stack-protector -m32 -static vulnz/vuln4.c -o vulnz/vuln4-32
 
 ## Running the code
 
-`auto-padder.py` finds the amount of padding needed to overwrite the return address. We can run `auto-padder.py` with the command below - the `--file` is used to denote what of input the buffer overflow is found:
+`auto-padder.py` finds the amount of padding needed to overwrite the return address. We can run `auto-padder.py` with the command below - the `--file` flag is used to denote what type of input the buffer overflow makes us of:
 
 ```
 python3 ROPgadget/auto-padder.py vulnz/vuln4-32 --file
@@ -74,12 +73,12 @@ We can choose to pipe the value of padding into our modified ROPGadget.py by usi
 ```
 python3 ROPgadget/auto-padder.py vulnz/vuln4-32 --file -p
 ```
+
 Running `ROPgadget/ROPgadget.py` will output the generated ROP chain into the file `ropchain`. For debugging purposes, we can view the ropchain using `hexdump -C -v ropchain`
 
 We can use the flags `--file`, `--arg` and `--stdin` to specify what input type the vulnerale file uses or use the shortened versions respectively `-f`, `-a` or `-i`. For example:
 
-```ls
-
+```
 python3 ROPgadget/auto-padder.py vulnz/vuln1-32 --arg
 python3 ROPgadget/auto-padder.py vulnz/vuln2-32 --stdin
 ```
@@ -104,7 +103,7 @@ To generate a ropchain with an arbitrary execve we can set the environment varia
 export ROPCMD="/bin/sh"
 ```
 
-We can then run our either `auto-padder.py` to generate the ropchain or we can run `ROPgadget.py` directly as such:
+We can then run either `auto-padder.py` to generate the ropchain or we can run `ROPgadget.py` directly as such:
 
 ```
 python3 ROPgadget/auto-padder.py vulnz/vuln4-32 -f -p
