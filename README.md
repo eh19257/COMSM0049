@@ -33,7 +33,7 @@ We can now install some dependencies on the VM by running the following:
 
 ```
 sudo apt update
-sudo apt install -y python3-pip gcc-multilib
+sudo apt install -y python3-pip gcc-multilib unzip
 pip3 install capstone
 ```
 
